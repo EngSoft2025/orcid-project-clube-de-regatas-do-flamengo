@@ -1,0 +1,29 @@
+@startuml
+actor ":Usuario"
+boundary ":PaginaBusca"
+control ":ControleBusca"
+entity ":Pesquisador"
+Database "DBPesquisadores"
+
+":Usuario" -> ":PaginaBusca" : Inserir termo de busca
+activate ":PaginaBusca"
+
+":PaginaBusca" -> ":ControleBusca" : Requisitar busca
+activate ":ControleBusca"
+
+":ControleBusca" -> ":Pesquisador" : buscar_por_termo(termo)
+activate ":Pesquisador"
+
+":Pesquisador" -> "DBPesquisadores" : Consulta por nome ou área
+activate "DBPesquisadores"
+
+":Pesquisador" <- "DBPesquisadores" : Resultados da busca
+deactivate "DBPesquisadores"
+
+":ControleBusca" <-- ":Pesquisador" : listaPesquisadores: Pesquisador[]
+deactivate ":Pesquisador"
+
+":PaginaBusca" <- ":ControleBusca" : Exibir resultados
+deactivate ":ControleBusca"
+deactivate ":PaginaBusca"
+@enduml

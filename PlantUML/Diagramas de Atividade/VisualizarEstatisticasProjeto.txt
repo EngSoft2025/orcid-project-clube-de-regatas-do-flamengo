@@ -1,0 +1,14 @@
+@startuml
+rectangle "Visualizar estatísticas do projeto"
+start
+
+:Selecionar projeto de interesse;
+
+:Coletar dados relacionados ao projeto;
+
+:Gerar estatísticas (quantidade de publicações, coautores, áreas, etc);
+
+:Exibir estatísticas em formato visual (gráficos, tabelas);
+
+stop
+@enduml

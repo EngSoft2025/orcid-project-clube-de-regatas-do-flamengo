@@ -1,0 +1,54 @@
+@startuml
+actor ":Usuario"
+boundary ":PaginaLogin"
+control ":ControleAutenticacao"
+entity ":ServicoOAuth"
+entity ":ORCID"
+Database "DBUsuarios"
+
+":Usuario" -> ":PaginaLogin" : Clicar em "Entrar com ORCID"
+activate ":PaginaLogin"
+
+":PaginaLogin" -> ":ControleAutenticacao" : Iniciar login ORCID
+activate ":ControleAutenticacao"
+
+":ControleAutenticacao" -> ":ServicoOAuth" : gerar_url_autorizacao()
+activate ":ServicoOAuth"
+
+":ServicoOAuth" -> ":ORCID" : Solicita autorização (redirect)
+deactivate ":PaginaLogin"
+deactivate ":ControleAutenticacao"
+deactivate ":ServicoOAuth"
+
+alt Usuário concede acesso
+    ":ORCID" --> ":ServicoOAuth" : Código de autorização
+    activate ":ServicoOAuth"
+
+    ":ServicoOAuth" -> ":ORCID" : Troca código por token
+    activate ":ORCID"
+
+    ":ServicoOAuth" <- ":ORCID" : token ORCID + dados do usuário
+    deactivate ":ORCID"
+
+    ":ServicoOAuth" -> "DBUsuarios" : verificar/cadastrar usuario(ORCID iD)
+    activate "DBUsuarios"
+    ":ServicoOAuth" <- "DBUsuarios" : Usuario autenticado
+    deactivate "DBUsuarios"
+
+    ":ControleAutenticacao" <- ":ServicoOAuth" : sucessoLogin(usuario)
+    activate ":ControleAutenticacao"
+
+    ":PaginaLogin" <- ":ControleAutenticacao" : Redirecionar para dashboard
+    deactivate ":ControleAutenticacao"
+    deactivate ":ServicoOAuth"
+
+else Usuário cancela login
+    ":ORCID" --> ":ServicoOAuth" : erro=access_denied
+    ":ServicoOAuth" -->":PaginaLogin" : Exibir "Login cancelado pelo usuário"
+end
+
+alt Erro ao obter token
+    ":ORCID" --> ":ServicoOAuth" : erro=invalid_code
+    ":ServicoOAuth" -> ":PaginaLogin" : Mostrar erro "Falha na autenticação"
+end
+@enduml

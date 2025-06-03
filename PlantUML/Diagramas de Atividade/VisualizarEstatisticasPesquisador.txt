@@ -1,0 +1,14 @@
+@startuml
+rectangle "Visualizar estatísticas do pesquisador"
+start
+
+:Selecionar pesquisador de interesse;
+
+:Buscar dados de produção acadêmica, colaborações, áreas de atuação;
+
+:Gerar estatísticas (número de publicações, parcerias, tópicos frequentes);
+
+:Exibir estatísticas em formato visual (gráficos, tabelas);
+
+stop
+@enduml

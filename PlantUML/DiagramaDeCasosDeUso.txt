@@ -1,0 +1,51 @@
+@startuml
+' Mantém direção padrão (vertical)
+top to bottom direction
+
+' Atores em coluna
+actor "Pesquisador adicionando informações" as PA
+actor "Pesquisador procurando informações" as PP
+actor "Administrador" as ADM
+
+' Posicionamento manual com links invisíveis para forçar separação vertical
+PA -[hidden]-> PP
+PP -[hidden]-> ADM
+
+' Casos de uso
+usecase "Criar e gerenciar perfil" as UC1
+usecase "Adicionar e editar produção intelectual" as UC2
+usecase "Associar trabalhos a projetos" as UC3
+usecase "Adicionar links adicionais a trabalhos" as UC4
+
+usecase "Visualizar produções acadêmicas" as UC5
+usecase "Visualizar perfis de pesquisadores" as UC6
+
+usecase "Gerenciar usuários" as UC7
+usecase "Gerenciar trabalhos e projetos" as UC8
+
+usecase "Associar ORCID ID" as EX1
+usecase "Associar identificador único" as EX2
+usecase "Verificar e atualizar dados do ORCID" as IC1
+usecase "Visualizar estatísticas do projeto" as IC2
+usecase "Visualizar estatísticas do pesquisador" as IC3
+
+' Relações do Pesquisador adicionando informações
+PA --> UC1
+PA --> UC2
+PA --> UC3
+PA --> UC4
+EX1 .l.> UC1 : <<extend>>
+UC1 .d.> IC1: <<include>>
+EX1 .d.> IC1: <<include>>
+EX2 .u.> UC2 : <<extend>>
+
+' Relações do Pesquisador procurando informações
+PP --> UC5
+UC5 .d.> IC2 : <<include>>
+PP --> UC6
+UC6 .d.> IC3 : <<include>>
+
+' Relações do Administrador
+ADM --> UC7
+ADM --> UC8
+@enduml

@@ -1,0 +1,46 @@
+@startuml
+rectangle "Adicionar e editar produção intelectual"
+start
+
+:Selecionar ação (adicionar ou editar produção);
+
+if() then ([Usuário possui permissão])
+
+if () then ([Adicionar])
+  :Preencher dados da nova produção (título, autores, tipo, ano, etc);
+  :Validar campos obrigatórios;
+
+  if () then ([Dados válidos])
+    :Salvar nova produção no sistema;
+    :Confirmar adição;
+    stop
+
+  else ([Dados inválidos])
+    :Exibir mensagens de erro;
+    stop
+
+  endif
+
+else ([Editar])
+  :Selecionar produção existente;
+  :Alterar dados desejados;
+  :Validar alterações;
+
+  if () then ([Alterações válidas])
+    :Salvar modificações;
+    :Confirmar edição;
+    stop
+
+  else ([Alterações inválidas])
+    :Exibir mensagens de erro;
+    stop
+
+  endif
+
+endif
+
+else([Usuário não possui permissão])
+:Exibir mensagem de erro;
+stop
+
+@enduml

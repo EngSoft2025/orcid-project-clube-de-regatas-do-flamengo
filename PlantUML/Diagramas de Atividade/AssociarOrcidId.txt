@@ -1,0 +1,21 @@
+@startuml
+rectangle "Associar ORCID ID"
+start
+
+:Solicitar ORCID ID do pesquisador;
+
+:Redirecionar para autenticação no ORCID;
+
+:Receber token de autenticação;
+
+:Validar token e obter dados básicos;
+
+if () then ([Token válido])
+  :Associar ORCID ID ao perfil do pesquisador;
+  :Confirmar associação;
+  stop
+
+else ([Token inválido])
+  :Exibir erro de autenticação;
+  stop
+@enduml

@@ -1,0 +1,34 @@
+@startuml
+rectangle "Criar e gerenciar perfil"
+start
+
+:Solicitar dados de login do pesquisador;
+
+if() then ([Perfil Existe])
+:Atualizar dados desejados;
+
+  if () then ([Dados válidos])
+    :Atualizar perfil no sistema;
+    :Confirmar operação ao usuário;
+    stop
+
+  else ([Dados inválidos])
+    :Exibir mensagens de erro e solicitar correções;
+    stop
+
+  endif
+
+else ([Perfil Não Existe])
+:Inserir dados para criar novo perfil;
+
+  if () then ([Dados válidos])
+    :Criar novo perfil;
+    :Logar usuário;
+    stop
+
+  else ([Dados inválidos])
+    :Exibir mensagens de erro e solicitar correções;
+    stop
+
+  endif
+@enduml

@@ -1,0 +1,29 @@
+@startuml
+rectangle "Adicionar links adicionais a trabalhos"
+start
+
+:Selecionar trabalho acadêmico;
+
+:Inserir link adicional (ex: página do projeto, vídeo, repositório);
+
+if() then ([Usuário possui permissão])
+:Validar formato do link;
+
+
+if () then ([Link válido])
+  :Adicionar link ao trabalho;
+  :Confirmar adição ao usuário;
+  stop
+
+else ([Link inválido])
+  :Exibir mensagem de erro;
+  stop
+
+endif
+
+else ([Usuário não possui permissão])
+
+:Exibir mensagem de erro;
+
+stop
+@enduml

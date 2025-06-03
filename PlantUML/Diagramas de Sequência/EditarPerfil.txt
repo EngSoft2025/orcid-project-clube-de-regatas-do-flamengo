@@ -1,0 +1,33 @@
+@startuml
+actor ":Pesquisador"
+boundary ":VisaoEdicaoPerfil"
+control ":ControleEdicaoPerfil"
+entity ":PerfilPesquisador"
+entity ":ORCIDAPI"
+Database "DBUsuarios"
+
+":Pesquisador" -> ":VisaoEdicaoPerfil" : Acessa formulário de edição
+activate ":VisaoEdicaoPerfil"
+
+":VisaoEdicaoPerfil" -> ":ControleEdicaoPerfil" : Enviar dados atualizados
+activate ":ControleEdicaoPerfil"
+
+":ControleEdicaoPerfil" -> ":PerfilPesquisador" : AtualizarPerfil(dados)
+activate ":PerfilPesquisador"
+
+":PerfilPesquisador" -> "DBUsuarios" : save(dados)
+activate "DBUsuarios"
+"DBUsuarios" --> ":PerfilPesquisador" : sucesso :bool
+deactivate "DBUsuarios"
+
+":PerfilPesquisador" -> ":ORCIDAPI" : PUT /person (ou endpoint equivalente)
+activate ":ORCIDAPI"
+":ORCIDAPI" --> ":PerfilPesquisador" : sucesso :bool
+deactivate ":ORCIDAPI"
+":PerfilPesquisador" --> ":ControleEdicaoPerfil" : sucesso :bool
+deactivate ":PerfilPesquisador"
+
+":ControleEdicaoPerfil" -> ":VisaoEdicaoPerfil" : Perfil atualizado com sucesso
+deactivate ":ControleEdicaoPerfil"
+deactivate ":VisaoEdicaoPerfil"
+@enduml

@@ -1,0 +1,17 @@
+@startuml
+rectangle "Visualizar perfis de pesquisadores"
+start
+
+:Receber filtros de pesquisa (nome, área, instituição, etc);
+
+:Buscar perfis de pesquisadores;
+
+if () then ([Se encontrou perfis])
+  :Exibir lista de perfis encontrados;
+  :Selecionar e visualizar perfil detalhado;
+  stop
+
+else ([Se não encontrou perfis])
+  :Exibir mensagem informando que nenhum resultado foi encontrado;
+  stop
+@enduml

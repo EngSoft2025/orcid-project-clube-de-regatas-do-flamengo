@@ -1,0 +1,19 @@
+@startuml
+rectangle "Verificar e atualizar dados do ORCID"
+start
+
+:Solicitar dados atualizados da API do ORCID;
+
+:Receber resposta com informações do perfil;
+
+if () then ([Diferenças encontradas])
+  :Exibir dados locais e dados do ORCID;
+  :Permitir ao usuário selecionar o que deseja atualizar;
+  :Atualizar dados no sistema local;
+  :Confirmar atualização;
+  stop
+
+else ([Sem diferenças])
+  :Informar que os dados já estão atualizados;
+  stop
+@enduml

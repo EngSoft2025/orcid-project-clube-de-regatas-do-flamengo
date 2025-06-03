@@ -1,0 +1,21 @@
+@startuml
+rectangle "Associar trabalhos a projetos"
+start
+
+:Selecionar trabalho acadêmico;
+
+:Listar projetos disponíveis;
+
+:Selecionar projeto ao qual o trabalho será associado;
+
+:Validar associação;
+
+if () then ([Associação válida])
+  :Registrar associação no sistema;
+  :Confirmar operação ao usuário;
+  stop
+
+else ([Associação inválida])
+  :Exibir mensagem de erro;
+  stop
+@enduml

@@ -1,0 +1,18 @@
+@startuml
+rectangle Visualizar Produção Acadêmica 
+start
+
+:Receber filtros de pesquisa;
+
+:Buscar produção;
+
+if() then ([Se encontrou produção])
+  :Exibir lista de produções encontradas;
+  :Abrir produção desejada;
+  stop
+
+else ([Se não encontrou produção])
+  :Retornar que nada foi encontrado;
+  stop
+
+@enduml

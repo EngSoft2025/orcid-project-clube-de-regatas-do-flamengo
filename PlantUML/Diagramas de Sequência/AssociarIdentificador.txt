@@ -1,0 +1,42 @@
+@startuml
+actor ":Pesquisador"
+boundary ":PaginaAssociacao"
+control ":ControleAssociacao"
+entity ":Trabalho"
+entity ":Pesquisa"
+Database "DBTrabalhos"
+Database "DBPesquisas"
+
+":Pesquisador" -> ":PaginaAssociacao" : Selecionar trabalho e pesquisa
+activate ":PaginaAssociacao"
+
+":PaginaAssociacao" -> ":ControleAssociacao" : Requisição de associação
+activate ":ControleAssociacao"
+
+":ControleAssociacao" -> ":Trabalho" : buscar_trabalho(idTrabalho)
+activate ":Trabalho"
+
+":Trabalho" -> "DBTrabalhos" : Consultar dados do trabalho
+activate "DBTrabalhos"
+":Trabalho" <- "DBTrabalhos" : Dados do trabalho
+deactivate "DBTrabalhos"
+deactivate ":Trabalho"
+
+":ControleAssociacao" -> ":Pesquisa" : buscar_pesquisa(idPesquisa)
+activate ":Pesquisa"
+
+":Pesquisa" -> "DBPesquisas" : Consultar dados da pesquisa
+activate "DBPesquisas"
+":Pesquisa" <- "DBPesquisas" : Dados da pesquisa
+deactivate "DBPesquisas"
+deactivate ":Pesquisa"
+
+":ControleAssociacao" -> "DBTrabalhos" : Atualizar trabalho com ID da pesquisa associada
+activate "DBTrabalhos"
+"DBTrabalhos" --> ":ControleAssociacao" : Confirmação
+deactivate "DBTrabalhos"
+
+":PaginaAssociacao" <- ":ControleAssociacao" : Exibir mensagem de sucesso
+deactivate ":ControleAssociacao"
+deactivate ":PaginaAssociacao"
+@enduml

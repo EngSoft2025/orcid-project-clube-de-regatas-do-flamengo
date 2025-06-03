@@ -1,0 +1,17 @@
+@startuml
+rectangle "Associar identificador único"
+start
+
+:Solicitar tipo e valor do identificador (ex: DOI, ISBN, etc);
+
+:Validar formato do identificador;
+
+if () then ([Identificador válido])
+  :Associar identificador ao trabalho ou perfil;
+  :Confirmar associação;
+  stop
+
+else ([Identificador inválido])
+  :Exibir mensagem de erro;
+  stop
+@enduml

@@ -1,0 +1,169 @@
+@startuml
+left to right direction
+' Sistema de Gerenciamento de Perfis ORCID
+
+
+
+'  Classes principais da aplicação
+
+
+
+class App {
+    +routes: Route[]
+}
+
+class Route {
+    +path: string
+    +component: ReactComponent
+}
+
+App "1" --> "0..*" Route: configura
+
+
+
+' Páginas
+
+
+
+class Index {
+    +perfilAtual: Pesquisador
+}
+
+class ResearcherProfilePage {
+    +perfilPesquisador: Pesquisador
+}
+
+class PaginaPublicacao {
+    +Publicacao: Publicacao
+}
+
+class PaginaProjeto {
+    +Projeto: Projeto
+}
+
+class EditProfile {
+    +formularioEdicao()
+}
+
+
+class PublicationSection {
+    +publicacoes: Publicacao[]
+}
+
+class ProjectSection {
+    +projetos: Projeto[]
+}
+
+class PesquisadorSection {
+    +pesquisadores: Pesquisador[]
+}
+
+class PublicacaoCard {
+    +publicacao: Publicacao
+    +editar()
+    +verDetalhes()
+}
+
+class ProjetoCard {
+    +projeto: Projeto
+    +editar()
+    +verDetalhes()
+}
+
+class PesquisadorCard {
+    +Pesquisador: Pesquisador
+    +verPerfil()
+}
+
+class FiltroPublicacao {
+    +termoBusca: string
+    +tiposSelecionados: string[]
+    +aplicarFiltro(publicacoes: Publicacao[]): Publicacao[]
+}
+
+class FiltroProjeto {
+    +termoBusca: string
+    +aplicarFiltro(projetos: Projeto[]): Projeto[]
+}
+
+class FiltroPesquisador {
+    +termoBusca: string
+    +aplicarFiltro(pesquisadores: Pesquisador[]): Pesquisador[]
+}
+
+
+
+' Dados e Tipos
+
+
+
+class Pesquisador {
+    +id: string
+    +nome: string
+    +email: string
+    +afiliacao: string
+    +subafiliacao: string
+    +areasAtuacao: string[]
+    +biografia: string
+    +links: string[]
+    +publicacoes: Publicacao[]
+    +projetos: Projeto[]
+}
+
+class Publicacao {
+    +id: string
+    +titulo: string
+    +ano: int
+    +tipo: string
+    +coautores: string[]
+}
+
+class Projeto {
+    +id: string
+    +nome: string
+    +descricao: string
+    +periodo: string
+    +financiamento: string
+    +papel: string
+}
+
+class Tipos {
+    +Pesquisador
+    +Publicacao
+    +Projeto
+}
+
+
+
+' Relacionamentos
+
+
+
+ResearcherProfilePage <-- Pesquisador
+PaginaPublicacao <-- Publicacao
+PaginaProjeto <-- Projeto
+PublicationSection --> Publicacao
+ProjectSection --> Projeto
+Index --> Pesquisador
+EditProfile --> Pesquisador
+Tipos --> Pesquisador
+Tipos --> Publicacao
+Tipos --> Projeto
+PublicationSection --> "0..*" PublicacaoCard
+ProjectSection --> "0..*" ProjetoCard
+PesquisadorSection --> "0..*" PesquisadorCard
+PesquisadorSection --> Pesquisador
+Publicacao--> FiltroPublicacao
+FiltroPublicacao --> Publicacao
+Projeto--> FiltroProjeto
+FiltroProjeto --> Projeto
+Pesquisador--> FiltroPesquisador
+FiltroPesquisador --> Pesquisador
+
+enum TipoPublicacao {
+    JournalArticle
+    ConferencePaper
+    BookChapter
+}
+Publicacao --> TipoPublicacao
+@enduml

@@ -184,42 +184,7 @@ const App = () => {
     fetchCurrentResearcherData();
   }, [auth]);
 
-  // useEffect para carregar lista de pesquisadores via busca na API do ORCID
-  useEffect(() => {
-    const fetchAllResearchers = async () => {
-      try {
-        /* TODO: Implementar busca de pesquisadores na API do ORCID
-         * 1. Usar endpoint de busca: https://pub.orcid.org/v3.0/search/?q=*
-         * 2. Ou buscar por instituição específica: ?q=affiliation-org-name:"University Name"
-         * 3. Para cada resultado, fazer fetch do perfil completo
-         * 4. Cachear resultados para melhor performance
-         * 
-         * Exemplo:
-         * const searchQuery = 'affiliation-org-name:"USP" OR affiliation-org-name:"UNICAMP"';
-         * const response = await fetch(`https://pub.orcid.org/v3.0/search/?q=${encodeURIComponent(searchQuery)}`);
-         * const searchResults = await response.json();
-         * 
-         * const researchers = await Promise.all(
-         *   searchResults.result.map(async (result) => {
-         *     const profileResponse = await fetch(`https://pub.orcid.org/v3.0/${result['orcid-identifier'].path}/record`);
-         *     return mapOrcidToResearcher(await profileResponse.json());
-         *   })
-         * );
-         * setAllResearchers(researchers);
-         */
-        
-        // Por enquanto, usando dados mockados
-        console.log('Carregando lista de pesquisadores...');
-        setAllResearchers(mockResearchers);
-      } catch (error) {
-        console.error('Erro ao carregar lista de pesquisadores:', error);
-      }
-    };
-
-    fetchAllResearchers();
-  }, []);
-
-  // Função para buscar dados de um pesquisador específico
+  // Função para buscar dados de um pesquisador específico (para ResearcherProfilePage)
   const getResearcherById = useCallback((id: string): Researcher | null => {
     if (id === 'current') {
       return currentResearcher;
@@ -227,7 +192,7 @@ const App = () => {
     return allResearchers.find(r => r.orcidId === id) || null;
   }, [currentResearcher, allResearchers]);
 
-  // Função para simular carregamento de dados com busca na API do ORCID
+  // Função para simular carregamento de dados com busca na API do ORCID (para ResearcherProfilePage)
   const loadResearcherData = useCallback((id: string, callback: (researcher: Researcher | null) => void) => {
     setLoading(true);
     
@@ -327,12 +292,7 @@ const App = () => {
               />
               <Route 
                 path="/search" 
-                element={
-                  <Search 
-                    researchers={allResearchers}
-                    loading={loading}
-                  />
-                } 
+                element={<Search />} 
               />
               <Route 
                 path="/publications" 
@@ -351,7 +311,7 @@ const App = () => {
                     publications={currentResearcher.publications}
                     loading={loading}
                   />
-                } 
+                }
               />
               <Route 
                 path="/edit-profile" 
@@ -368,58 +328,40 @@ const App = () => {
               />
               <Route 
                 path="/new-publication" 
-                element={
-                  <NewPublicationPage 
-                  />
-                } 
+                element={<NewPublicationPage />} 
               />
               <Route 
                 path="/new-project" 
-                element={
-                  <NewProjectPage
-                  />
-                } 
+                element={<NewProjectPage />} 
               />
               <Route 
                 path="/researcher/:id" 
                 element={
                   <ResearcherProfilePage 
-                  getResearcherById={getResearcherById}
-                  loadResearcherData={loadResearcherData}
-                  loading={loading}
+                    getResearcherById={getResearcherById}
+                    loadResearcherData={loadResearcherData}
+                    loading={loading}
                   />
                 } 
               />
               <Route 
                 path="/edit-publication/:id" 
-                element={
-                  <EditPublicationPage 
-                  />
-                } 
+                element={<EditPublicationPage />} 
               />
               <Route 
                 path="/edit-project/:id" 
-                element={
-                  <EditProjectPage 
-                  />
-                } 
+                element={<EditProjectPage />} 
               />
               <Route 
                 path="/login" 
-                element={
-                  <Login 
-                  />
-                } 
+                element={<Login />} 
               />
               <Route 
                 path="/register" 
-                element={
-                  <Register 
-                  />
-                } 
+                element={<Register />} 
               />
               <Route 
-                path="/oauth/callback" 
+                path="/login/callback" 
                 element={
                   <OAuthCallback 
                     onLogin={handleLogin}

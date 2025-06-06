@@ -1,4 +1,3 @@
-
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
@@ -60,12 +59,14 @@ app.get('/', (req, res) => {
     message: 'ORCID Proxy Server is running!',
     endpoints: {
       '/api/orcid/token': 'POST - Get access token',
-      '/api/orcid/profile/:orcid': 'GET - Get ORCID profile',
-      '/api/orcid/profile/:orcid/works': 'GET - Get ORCID works',
-      '/api/orcid/profile/:orcid/work/:putCode': 'GET - Get individual work',
-      '/api/orcid/profile/:orcid/fundings': 'GET - Get ORCID fundings',
-      '/api/orcid/profile/:orcid/funding/:putCode': 'GET - Get individual funding'
-    }
+      '/api/orcid/search': 'GET - Search ORCID profiles (public, no auth required)',
+      '/api/orcid/profile/:orcid': 'GET - Get ORCID profile (auth optional)',
+      '/api/orcid/profile/:orcid/works': 'GET - Get ORCID works (auth optional)',
+      '/api/orcid/profile/:orcid/work/:putCode': 'GET - Get individual work (auth optional)',
+      '/api/orcid/profile/:orcid/fundings': 'GET - Get ORCID fundings (auth optional)',
+      '/api/orcid/profile/:orcid/funding/:putCode': 'GET - Get individual funding (auth optional)'
+    },
+    note: 'Authorization header is optional for profile endpoints. Public data will be returned without auth.'
   };
   console.log('📋 Enviando resposta da raiz:', JSON.stringify(response, null, 2));
   res.json(response);
@@ -168,9 +169,68 @@ app.post('/api/orcid/token', async (req, res) => {
   console.log('🔚 === FIM ENDPOINT TOKEN ===\n');
 });
 
-// Get ORCID Profile
+// Search ORCID profiles - PÚBLICO (sem necessidade de token)
+app.get('/api/orcid/search', async (req, res) => {
+  console.log('\n🔍 === ENDPOINT: SEARCH PROFILES (PUBLIC) ===');
+  console.log('📥 Query params:', req.query);
+  
+  try {
+    const { q, start = 0, rows = 10 } = req.query;
+
+    console.log('🔍 Parâmetros de busca:', { q, start, rows });
+    console.log('🔓 Busca pública - sem necessidade de autenticação');
+
+    if (!q) {
+      console.log('❌ Validação falhou: parâmetro "q" ausente');
+      return res.status(400).json({ 
+        error: 'Query parameter "q" is required' 
+      });
+    }
+
+    // Usar API pública (sem necessidade de token)
+    const searchUrl = `https://pub.orcid.org/v3.0/search?q=${encodeURIComponent(q)}&start=${start}&rows=${rows}`;
+    console.log('🔗 URL de busca pública:', searchUrl);
+    
+    console.log('📤 Enviando requisição de busca pública para ORCID...');
+    const response = await fetch(searchUrl, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'ORCID-Proxy-Server/1.0'
+      },
+    });
+
+    console.log('📥 Resposta da busca recebida do ORCID:');
+    console.log('📊 Status:', response.status, response.statusText);
+
+    const data = await response.json();
+    console.log('📄 Resultados da busca recebidos');
+    console.log('📊 Número de resultados:', data['num-found'] || 'N/A');
+
+    if (response.ok) {
+      console.log('✅ Busca pública realizada com sucesso');
+      res.json(data);
+    } else {
+      console.log('❌ Erro na busca pública');
+      res.status(response.status).json({ 
+        error: 'Failed to search ORCID profiles', 
+        details: data 
+      });
+    }
+  } catch (error) {
+    console.error('💥 ERRO CRÍTICO no endpoint de busca pública:');
+    console.error('📋 Detalhes do erro:', error);
+    console.error('📚 Stack trace:', error.stack);
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      message: error.message 
+    });
+  }
+  console.log('🔚 === FIM ENDPOINT SEARCH PUBLIC ===\n');
+});
+
+// Get ORCID Profile - AUTORIZAÇÃO OPCIONAL
 app.get('/api/orcid/profile/:orcid', async (req, res) => {
-  console.log('\n👤 === ENDPOINT: GET PROFILE ===');
+  console.log('\n👤 === ENDPOINT: GET PROFILE (AUTH OPCIONAL) ===');
   console.log('📥 Parâmetros:', req.params);
   console.log('📋 Query params:', req.query);
   
@@ -179,14 +239,7 @@ app.get('/api/orcid/profile/:orcid', async (req, res) => {
     const authHeader = req.headers.authorization;
 
     console.log('🔍 ORCID extraído:', orcid);
-    console.log('🔑 Authorization header:', authHeader ? `${authHeader.substring(0, 20)}...` : 'AUSENTE');
-
-    if (!authHeader) {
-      console.log('❌ Validação falhou: Authorization header ausente');
-      return res.status(401).json({ 
-        error: 'Authorization header is required' 
-      });
-    }
+    console.log('🔑 Authorization header:', authHeader ? `${authHeader.substring(0, 20)}...` : 'AUSENTE (usando API pública)');
 
     // Validate ORCID format (basic validation)
     const orcidRegex = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/;
@@ -201,16 +254,25 @@ app.get('/api/orcid/profile/:orcid', async (req, res) => {
       });
     }
 
-    const profileUrl = `https://pub.sandbox.orcid.org/v3.0/${orcid}/record`;
+    // Usar API pública por padrão, ou sandbox se tiver auth
+    const baseUrl = authHeader ? 'https://pub.sandbox.orcid.org' : 'https://pub.orcid.org';
+    const profileUrl = `${baseUrl}/v3.0/${orcid}/record`;
+    
     console.log('🔗 URL do perfil:', profileUrl);
+    console.log('🌐 Usando API:', authHeader ? 'SANDBOX (com auth)' : 'PÚBLICA (sem auth)');
+    
+    const headers = {
+      'Accept': 'application/json',
+    };
+    
+    // Adicionar authorization apenas se estiver presente
+    if (authHeader) {
+      headers['Authorization'] = authHeader;
+      console.log('🔑 Adicionando header de autorização');
+    }
     
     console.log('📤 Enviando requisição para ORCID...');
-    const response = await fetch(profileUrl, {
-      headers: {
-        'Authorization': authHeader,
-        'Accept': 'application/json',
-      },
-    });
+    const response = await fetch(profileUrl, { headers });
 
     console.log('📥 Resposta recebida do ORCID:');
     console.log('📊 Status:', response.status, response.statusText);
@@ -242,9 +304,9 @@ app.get('/api/orcid/profile/:orcid', async (req, res) => {
   console.log('🔚 === FIM ENDPOINT PROFILE ===\n');
 });
 
-// Get specific sections of ORCID profile
+// Get specific sections of ORCID profile - AUTORIZAÇÃO OPCIONAL
 app.get('/api/orcid/profile/:orcid/:section', async (req, res) => {
-  console.log('\n📂 === ENDPOINT: GET PROFILE SECTION ===');
+  console.log('\n📂 === ENDPOINT: GET PROFILE SECTION (AUTH OPCIONAL) ===');
   console.log('📥 Parâmetros:', req.params);
   
   try {
@@ -252,14 +314,7 @@ app.get('/api/orcid/profile/:orcid/:section', async (req, res) => {
     const authHeader = req.headers.authorization;
 
     console.log('🔍 Dados extraídos:', { orcid, section });
-    console.log('🔑 Authorization header:', authHeader ? `${authHeader.substring(0, 20)}...` : 'AUSENTE');
-
-    if (!authHeader) {
-      console.log('❌ Validação falhou: Authorization header ausente');
-      return res.status(401).json({ 
-        error: 'Authorization header is required' 
-      });
-    }
+    console.log('🔑 Authorization header:', authHeader ? `${authHeader.substring(0, 20)}...` : 'AUSENTE (usando API pública)');
 
     // Validate ORCID format
     const orcidRegex = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/;
@@ -284,16 +339,25 @@ app.get('/api/orcid/profile/:orcid/:section', async (req, res) => {
       });
     }
 
-    const profileUrl = `https://pub.sandbox.orcid.org/v3.0/${orcid}/${section}`;
+    // Usar API pública por padrão, ou sandbox se tiver auth
+    const baseUrl = authHeader ? 'https://pub.sandbox.orcid.org' : 'https://pub.orcid.org';
+    const profileUrl = `${baseUrl}/v3.0/${orcid}/${section}`;
+    
     console.log('🔗 URL da seção:', profileUrl);
+    console.log('🌐 Usando API:', authHeader ? 'SANDBOX (com auth)' : 'PÚBLICA (sem auth)');
+    
+    const headers = {
+      'Accept': 'application/json',
+    };
+    
+    // Adicionar authorization apenas se estiver presente
+    if (authHeader) {
+      headers['Authorization'] = authHeader;
+      console.log('🔑 Adicionando header de autorização');
+    }
     
     console.log('📤 Enviando requisição para ORCID...');
-    const response = await fetch(profileUrl, {
-      headers: {
-        'Authorization': authHeader,
-        'Accept': 'application/json',
-      },
-    });
+    const response = await fetch(profileUrl, { headers });
 
     console.log('📥 Resposta recebida do ORCID:');
     console.log('📊 Status:', response.status, response.statusText);
@@ -323,9 +387,9 @@ app.get('/api/orcid/profile/:orcid/:section', async (req, res) => {
   console.log('🔚 === FIM ENDPOINT SECTION ===\n');
 });
 
-// Get individual work details
+// Get individual work details - AUTORIZAÇÃO OPCIONAL
 app.get('/api/orcid/profile/:orcid/work/:putCode', async (req, res) => {
-  console.log('\n📄 === ENDPOINT: GET WORK DETAILS ===');
+  console.log('\n📄 === ENDPOINT: GET WORK DETAILS (AUTH OPCIONAL) ===');
   console.log('📥 Parâmetros:', req.params);
   
   try {
@@ -333,14 +397,7 @@ app.get('/api/orcid/profile/:orcid/work/:putCode', async (req, res) => {
     const authHeader = req.headers.authorization;
 
     console.log('🔍 Dados extraídos:', { orcid, putCode });
-    console.log('🔑 Authorization header:', authHeader ? `${authHeader.substring(0, 20)}...` : 'AUSENTE');
-
-    if (!authHeader) {
-      console.log('❌ Validação falhou: Authorization header ausente');
-      return res.status(401).json({ 
-        error: 'Authorization header is required' 
-      });
-    }
+    console.log('🔑 Authorization header:', authHeader ? `${authHeader.substring(0, 20)}...` : 'AUSENTE (usando API pública)');
 
     // Validate ORCID format
     const orcidRegex = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/;
@@ -352,16 +409,25 @@ app.get('/api/orcid/profile/:orcid/work/:putCode', async (req, res) => {
       });
     }
 
-    const workUrl = `https://pub.sandbox.orcid.org/v3.0/${orcid}/work/${putCode}`;
+    // Usar API pública por padrão, ou sandbox se tiver auth
+    const baseUrl = authHeader ? 'https://pub.sandbox.orcid.org' : 'https://pub.orcid.org';
+    const workUrl = `${baseUrl}/v3.0/${orcid}/work/${putCode}`;
+    
     console.log('🔗 URL do trabalho:', workUrl);
+    console.log('🌐 Usando API:', authHeader ? 'SANDBOX (com auth)' : 'PÚBLICA (sem auth)');
+    
+    const headers = {
+      'Accept': 'application/json',
+    };
+    
+    // Adicionar authorization apenas se estiver presente
+    if (authHeader) {
+      headers['Authorization'] = authHeader;
+      console.log('🔑 Adicionando header de autorização');
+    }
     
     console.log('📤 Enviando requisição para ORCID...');
-    const response = await fetch(workUrl, {
-      headers: {
-        'Authorization': authHeader,
-        'Accept': 'application/json',
-      },
-    });
+    const response = await fetch(workUrl, { headers });
 
     console.log('📥 Resposta recebida do ORCID:');
     console.log('📊 Status:', response.status, response.statusText);
@@ -392,12 +458,12 @@ app.get('/api/orcid/profile/:orcid/work/:putCode', async (req, res) => {
 });
 
 // ========================
-// NOVOS ENDPOINTS PARA FUNDING
+// ENDPOINTS PARA FUNDING - AUTORIZAÇÃO OPCIONAL
 // ========================
 
-// Get ORCID fundings list
+// Get ORCID fundings list - AUTORIZAÇÃO OPCIONAL
 app.get('/api/orcid/profile/:orcid/fundings', async (req, res) => {
-  console.log('\n💰 === ENDPOINT: GET FUNDINGS LIST ===');
+  console.log('\n💰 === ENDPOINT: GET FUNDINGS LIST (AUTH OPCIONAL) ===');
   console.log('📥 Parâmetros:', req.params);
   
   try {
@@ -405,14 +471,7 @@ app.get('/api/orcid/profile/:orcid/fundings', async (req, res) => {
     const authHeader = req.headers.authorization;
 
     console.log('🔍 ORCID extraído:', orcid);
-    console.log('🔑 Authorization header:', authHeader ? `${authHeader.substring(0, 20)}...` : 'AUSENTE');
-
-    if (!authHeader) {
-      console.log('❌ Validação falhou: Authorization header ausente');
-      return res.status(401).json({ 
-        error: 'Authorization header is required' 
-      });
-    }
+    console.log('🔑 Authorization header:', authHeader ? `${authHeader.substring(0, 20)}...` : 'AUSENTE (usando API pública)');
 
     // Validate ORCID format
     const orcidRegex = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/;
@@ -424,16 +483,25 @@ app.get('/api/orcid/profile/:orcid/fundings', async (req, res) => {
       });
     }
 
-    const fundingsUrl = `https://pub.sandbox.orcid.org/v3.0/${orcid}/fundings`;
+    // Usar API pública por padrão, ou sandbox se tiver auth
+    const baseUrl = authHeader ? 'https://pub.sandbox.orcid.org' : 'https://pub.orcid.org';
+    const fundingsUrl = `${baseUrl}/v3.0/${orcid}/fundings`;
+    
     console.log('🔗 URL dos fundings:', fundingsUrl);
+    console.log('🌐 Usando API:', authHeader ? 'SANDBOX (com auth)' : 'PÚBLICA (sem auth)');
+    
+    const headers = {
+      'Accept': 'application/json',
+    };
+    
+    // Adicionar authorization apenas se estiver presente
+    if (authHeader) {
+      headers['Authorization'] = authHeader;
+      console.log('🔑 Adicionando header de autorização');
+    }
     
     console.log('📤 Enviando requisição para ORCID...');
-    const response = await fetch(fundingsUrl, {
-      headers: {
-        'Authorization': authHeader,
-        'Accept': 'application/json',
-      },
-    });
+    const response = await fetch(fundingsUrl, { headers });
 
     console.log('📥 Resposta recebida do ORCID:');
     console.log('📊 Status:', response.status, response.statusText);
@@ -464,9 +532,9 @@ app.get('/api/orcid/profile/:orcid/fundings', async (req, res) => {
   console.log('🔚 === FIM ENDPOINT FUNDINGS ===\n');
 });
 
-// Get individual funding details
+// Get individual funding details - AUTORIZAÇÃO OPCIONAL
 app.get('/api/orcid/profile/:orcid/funding/:putCode', async (req, res) => {
-  console.log('\n💼 === ENDPOINT: GET FUNDING DETAILS ===');
+  console.log('\n💼 === ENDPOINT: GET FUNDING DETAILS (AUTH OPCIONAL) ===');
   console.log('📥 Parâmetros:', req.params);
   
   try {
@@ -474,14 +542,7 @@ app.get('/api/orcid/profile/:orcid/funding/:putCode', async (req, res) => {
     const authHeader = req.headers.authorization;
 
     console.log('🔍 Dados extraídos:', { orcid, putCode });
-    console.log('🔑 Authorization header:', authHeader ? `${authHeader.substring(0, 20)}...` : 'AUSENTE');
-
-    if (!authHeader) {
-      console.log('❌ Validação falhou: Authorization header ausente');
-      return res.status(401).json({ 
-        error: 'Authorization header is required' 
-      });
-    }
+    console.log('🔑 Authorization header:', authHeader ? `${authHeader.substring(0, 20)}...` : 'AUSENTE (usando API pública)');
 
     // Validate ORCID format
     const orcidRegex = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/;
@@ -493,16 +554,25 @@ app.get('/api/orcid/profile/:orcid/funding/:putCode', async (req, res) => {
       });
     }
 
-    const fundingUrl = `https://pub.sandbox.orcid.org/v3.0/${orcid}/funding/${putCode}`;
+    // Usar API pública por padrão, ou sandbox se tiver auth
+    const baseUrl = authHeader ? 'https://pub.sandbox.orcid.org' : 'https://pub.orcid.org';
+    const fundingUrl = `${baseUrl}/v3.0/${orcid}/funding/${putCode}`;
+    
     console.log('🔗 URL do funding:', fundingUrl);
+    console.log('🌐 Usando API:', authHeader ? 'SANDBOX (com auth)' : 'PÚBLICA (sem auth)');
+    
+    const headers = {
+      'Accept': 'application/json',
+    };
+    
+    // Adicionar authorization apenas se estiver presente
+    if (authHeader) {
+      headers['Authorization'] = authHeader;
+      console.log('🔑 Adicionando header de autorização');
+    }
     
     console.log('📤 Enviando requisição para ORCID...');
-    const response = await fetch(fundingUrl, {
-      headers: {
-        'Authorization': authHeader,
-        'Accept': 'application/json',
-      },
-    });
+    const response = await fetch(fundingUrl, { headers });
 
     console.log('📥 Resposta recebida do ORCID:');
     console.log('📊 Status:', response.status, response.statusText);
@@ -533,72 +603,6 @@ app.get('/api/orcid/profile/:orcid/funding/:putCode', async (req, res) => {
     });
   }
   console.log('🔚 === FIM ENDPOINT FUNDING ===\n');
-});
-
-// Search ORCID profiles
-app.get('/api/orcid/search', async (req, res) => {
-  console.log('\n🔍 === ENDPOINT: SEARCH PROFILES ===');
-  console.log('📥 Query params:', req.query);
-  
-  try {
-    const { q, start = 0, rows = 10 } = req.query;
-    const authHeader = req.headers.authorization;
-
-    console.log('🔍 Parâmetros de busca:', { q, start, rows });
-    console.log('🔑 Authorization header:', authHeader ? `${authHeader.substring(0, 20)}...` : 'AUSENTE');
-
-    if (!q) {
-      console.log('❌ Validação falhou: parâmetro "q" ausente');
-      return res.status(400).json({ 
-        error: 'Query parameter "q" is required' 
-      });
-    }
-
-    if (!authHeader) {
-      console.log('❌ Validação falhou: Authorization header ausente');
-      return res.status(401).json({ 
-        error: 'Authorization header is required' 
-      });
-    }
-
-    const searchUrl = `https://pub.sandbox.orcid.org/v3.0/search?q=${encodeURIComponent(q)}&start=${start}&rows=${rows}`;
-    console.log('🔗 URL de busca:', searchUrl);
-    
-    console.log('📤 Enviando requisição de busca para ORCID...');
-    const response = await fetch(searchUrl, {
-      headers: {
-        'Authorization': authHeader,
-        'Accept': 'application/json',
-      },
-    });
-
-    console.log('📥 Resposta da busca recebida do ORCID:');
-    console.log('📊 Status:', response.status, response.statusText);
-
-    const data = await response.json();
-    console.log('📄 Resultados da busca recebidos');
-    console.log('📊 Número de resultados:', data['num-found'] || 'N/A');
-
-    if (response.ok) {
-      console.log('✅ Busca realizada com sucesso');
-      res.json(data);
-    } else {
-      console.log('❌ Erro na busca');
-      res.status(response.status).json({ 
-        error: 'Failed to search ORCID profiles', 
-        details: data 
-      });
-    }
-  } catch (error) {
-    console.error('💥 ERRO CRÍTICO no endpoint de busca:');
-    console.error('📋 Detalhes do erro:', error);
-    console.error('📚 Stack trace:', error.stack);
-    res.status(500).json({ 
-      error: 'Internal server error', 
-      message: error.message 
-    });
-  }
-  console.log('🔚 === FIM ENDPOINT SEARCH ===\n');
 });
 
 // Health check endpoint
@@ -648,12 +652,12 @@ app.use((req, res) => {
     available_endpoints: {
       'GET /': 'API information',
       'POST /api/orcid/token': 'Get access token',
-      'GET /api/orcid/profile/:orcid': 'Get ORCID profile',
-      'GET /api/orcid/profile/:orcid/:section': 'Get specific profile section',
-      'GET /api/orcid/profile/:orcid/work/:putCode': 'Get individual work',
-      'GET /api/orcid/profile/:orcid/fundings': 'Get ORCID fundings list',
-      'GET /api/orcid/profile/:orcid/funding/:putCode': 'Get individual funding',
-      'GET /api/orcid/search': 'Search ORCID profiles',
+      'GET /api/orcid/search': 'Search ORCID profiles (public)',
+      'GET /api/orcid/profile/:orcid': 'Get ORCID profile (auth optional)',
+      'GET /api/orcid/profile/:orcid/:section': 'Get specific profile section (auth optional)',
+      'GET /api/orcid/profile/:orcid/work/:putCode': 'Get individual work (auth optional)',
+      'GET /api/orcid/profile/:orcid/fundings': 'Get ORCID fundings list (auth optional)',
+      'GET /api/orcid/profile/:orcid/funding/:putCode': 'Get individual funding (auth optional)',
       'GET /health': 'Health check'
     }
   });
@@ -672,12 +676,14 @@ app.listen(PORT, () => {
   console.log('\n📋 ENDPOINTS DISPONÍVEIS:');
   console.log('  🏠 GET  / - Informações da API');
   console.log('  🔑 POST /api/orcid/token - Obter token de acesso');
-  console.log('  👤 GET  /api/orcid/profile/:orcid - Obter perfil ORCID completo');
-  console.log('  📂 GET  /api/orcid/profile/:orcid/:section - Obter seção específica (works, fundings, etc.)');
-  console.log('  📄 GET  /api/orcid/profile/:orcid/work/:putCode - Obter detalhes de trabalho individual');
-  console.log('  💰 GET  /api/orcid/profile/:orcid/fundings - Obter lista de financiamentos');
-  console.log('  💼 GET  /api/orcid/profile/:orcid/funding/:putCode - Obter detalhes de financiamento individual');
-  console.log('  🔍 GET  /api/orcid/search - Buscar perfis ORCID');
+  console.log('  👤 GET  /api/orcid/profile/:orcid - Obter perfil ORCID completo (auth opcional)');
+  console.log('  📂 GET  /api/orcid/profile/:orcid/:section - Obter seção específica (auth opcional)');
+  console.log('  📄 GET  /api/orcid/profile/:orcid/work/:putCode - Obter detalhes de trabalho individual (auth opcional)');
+  console.log('  💰 GET  /api/orcid/profile/:orcid/fundings - Obter lista de financiamentos (auth opcional)');
+  console.log('  💼 GET  /api/orcid/profile/:orcid/funding/:putCode - Obter detalhes de financiamento individual (auth opcional)');
+  console.log('  🔍 GET  /api/orcid/search - Buscar perfis ORCID (público)');
   console.log('  💓 GET  /health - Health check do servidor');
-  console.log('\n🎯 Servidor pronto para receber requisições!');
+  console.log('\n🔓 AUTORIZAÇÃO OPCIONAL:');
+  console.log('  ✅ Com Authorization header: usa API do sandbox');
+  console.log('  🔓 Sem Authorization header: usa API pública');
 });

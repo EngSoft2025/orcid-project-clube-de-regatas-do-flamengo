@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -8,15 +7,46 @@ import PublicationSection from './PublicationSection';
 import ProjectSection from './ProjectSection';
 import PublicationChart from './PublicationChart';
 import ProjectPublicationChart from './ProjectPublicationChart';
-import { Researcher } from '../types';
+import { Researcher, Publication, Project } from '../types';
+
+// Interface para dados de paginação
+interface PaginationData<T> {
+  items: T[];
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
 
 // Props que este componente recebe
 interface ResearcherProfileProps {
   researcher: Researcher;
   isEditable?: boolean;
+  // Props para paginação de publicações
+  publicationsPagination: PaginationData<Publication>;
+  onPublicationsPageChange: (page: number) => void;
+  // Props para paginação de projetos
+  projectsPagination: PaginationData<Project>;
+  onProjectsPageChange: (page: number) => void;
+  // Indica se a paginação é em memória ou via API
+  isMemoryPagination: boolean;
+  // Estados de loading para API
+  publicationsLoading?: boolean;
+  projectsLoading?: boolean;
 }
 
-const ResearcherProfile = ({ researcher, isEditable = false }: ResearcherProfileProps) => {
+const ResearcherProfile = ({ 
+  researcher, 
+  isEditable = false,
+  publicationsPagination,
+  onPublicationsPageChange,
+  projectsPagination,
+  onProjectsPageChange,
+  isMemoryPagination,
+  publicationsLoading = false,
+  projectsLoading = false
+}: ResearcherProfileProps) => {
   // Estado local apenas para controlar qual gráfico está ativo
   const [activeChartTab, setActiveChartTab] = useState("publications");
 
@@ -30,13 +60,24 @@ const ResearcherProfile = ({ researcher, isEditable = false }: ResearcherProfile
         
         {/* Coluna principal (2/3 da largura) */}
         <div className="md:col-span-2">
-          {/* Seção de publicações - passa lista de publicações */}
-          <PublicationSection publications={researcher.publications} />
+          {/* Seção de publicações - passa dados paginados */}
+          <PublicationSection 
+            publications={publicationsPagination.items}
+            allPublications={researcher.publications} // NOVO: Passar todas as publicações para contagem correta
+            pagination={publicationsPagination}
+            onPageChange={onPublicationsPageChange}
+            loading={publicationsLoading}
+            isMemoryPagination={isMemoryPagination}
+          />
           
-          {/* Seção de projetos - passa projetos e publicações */}
+          {/* Seção de projetos - passa dados paginados */}
           <ProjectSection 
-            projects={researcher.projects} 
-            publications={researcher.publications} 
+            projects={projectsPagination.items}
+            publications={researcher.publications} // Para gráficos, usa todos os dados
+            pagination={projectsPagination}
+            onPageChange={onProjectsPageChange}
+            loading={projectsLoading}
+            isMemoryPagination={isMemoryPagination}
           />
         </div>
         
@@ -55,13 +96,16 @@ const ResearcherProfile = ({ researcher, isEditable = false }: ResearcherProfile
               
               {/* Conteúdo de cada tab */}
               <TabsContent value="publications">
-                <PublicationChart publications={researcher.publications} />
+                {/* Para gráficos, usa todos os dados não paginados se disponível */}
+                <PublicationChart 
+                  publications={isMemoryPagination ? researcher.publications : publicationsPagination.items} 
+                />
               </TabsContent>
               
               <TabsContent value="projects">
                 <ProjectPublicationChart 
-                  publications={researcher.publications} 
-                  projects={researcher.projects} 
+                  publications={isMemoryPagination ? researcher.publications : publicationsPagination.items}
+                  projects={isMemoryPagination ? researcher.projects : projectsPagination.items}
                 />
               </TabsContent>
             </Tabs>
@@ -72,20 +116,24 @@ const ResearcherProfile = ({ researcher, isEditable = false }: ResearcherProfile
             <h3 className="section-title mb-4">Links Acadêmicos</h3>
             <ul className="space-y-2">
               {/* Link para página institucional */}
-              <li className="flex items-center text-blue-600 hover:text-blue-800">
-                <Link className="w-4 h-4 mr-2" />
-                <a href={researcher.institutionalPage} target="_blank" rel="noopener noreferrer">
-                  Página Institucional
-                </a>
-              </li>
+              {researcher.institutionalPage && (
+                <li className="flex items-center text-blue-600 hover:text-blue-800">
+                  <Link className="w-4 h-4 mr-2" />
+                  <a href={researcher.institutionalPage} target="_blank" rel="noopener noreferrer">
+                    Página Institucional
+                  </a>
+                </li>
+              )}
               
               {/* Link para ORCID */}
-              <li className="flex items-center text-blue-600 hover:text-blue-800">
-                <Link className="w-4 h-4 mr-2" />
-                <a href={`https://orcid.org/${researcher.orcidId}`} target="_blank" rel="noopener noreferrer">
-                  Perfil ORCID
-                </a>
-              </li>
+              {researcher.orcidId && (
+                <li className="flex items-center text-blue-600 hover:text-blue-800">
+                  <Link className="w-4 h-4 mr-2" />
+                  <a href={`https://orcid.org/${researcher.orcidId}`} target="_blank" rel="noopener noreferrer">
+                    Perfil ORCID
+                  </a>
+                </li>
+              )}
               
               {/* Links externos do pesquisador */}
               {researcher.externalLinks.map((link, index) => (

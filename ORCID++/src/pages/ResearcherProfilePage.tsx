@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,7 +42,7 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
   const [isForeignProfile, setIsForeignProfile] = useState(false);
   const [foreignStatus, setForeignStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
-  const hasRun = useRef(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Estados para paginação (apenas para perfis internos)
   const [publicationsPage, setPublicationsPage] = useState(1);
@@ -58,19 +58,19 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
   const API_BASE_URL = 'http://localhost:3000';
 
   // Determinar se é um perfil externo (ORCID) baseado no formato do ID
-  const isORCIDFormat = (orcidId: string): boolean => {
+  const isORCIDFormat = useCallback((orcidId: string): boolean => {
     const orcidRegex = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/;
     return orcidRegex.test(orcidId);
-  };
+  }, []);
 
   // Verificar se os dados do cache são válidos
-  const isCacheValid = (cacheEntry: any): boolean => {
+  const isCacheValid = useCallback((cacheEntry: any): boolean => {
     const now = Date.now();
     return (now - cacheEntry.lastFetch) < CACHE_DURATION;
-  };
+  }, []);
 
   // Carregar dados do cache se disponível e válido
-  const loadFromCache = (researcherId: string): boolean => {
+  const loadFromCache = useCallback((researcherId: string): boolean => {
     const cached = researcherCache.get(researcherId);
     if (cached && isCacheValid(cached)) {
       console.log(`Carregando dados do cache para ${researcherId}`);
@@ -78,21 +78,13 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
       setAllPublications(cached.publications);
       setAllProjects(cached.projects);
       setForeignStatus(cached.status);
-      
-      // Atualizar researcher com publicações e projetos
-      setResearcher(prevResearcher => ({
-        ...cached.researcher,
-        publications: cached.publications,
-        projects: cached.projects,
-      }));
-      
       return true;
     }
     return false;
-  };
+  }, [isCacheValid]);
 
   // Salvar dados no cache
-  const saveToCache = (researcherId: string, researcherData: Researcher, publications: Publication[], projects: Project[], status: 'success' | 'error') => {
+  const saveToCache = useCallback((researcherId: string, researcherData: Researcher, publications: Publication[], projects: Project[], status: 'success' | 'error') => {
     researcherCache.set(researcherId, {
       researcher: researcherData,
       publications,
@@ -101,10 +93,10 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
       status
     });
     console.log(`Dados salvos no cache para ${researcherId}`);
-  };
+  }, []);
 
   // Função para extrair dados básicos do perfil ORCID
-  const getDisplayName = (profile: any): string => {
+  const getDisplayName = useCallback((profile: any): string => {
     const person = profile.person;
     if (person?.name) {
       const given = person.name['given-names']?.value || '';
@@ -112,10 +104,10 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
       return `${given} ${family}`.trim();
     }
     return 'Pesquisador Desconhecido';
-  };
+  }, []);
 
   // Função para buscar TODAS as publicações de uma vez
-  const fetchAllPublications = async (orcidId: string): Promise<Publication[]> => {
+  const fetchAllPublications = useCallback(async (orcidId: string): Promise<Publication[]> => {
     try {
       setPublicationsLoading(true);
       
@@ -211,10 +203,10 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
     } finally {
       setPublicationsLoading(false);
     }
-  };
+  }, [API_BASE_URL]);
 
   // Função para buscar TODOS os projetos de uma vez
-  const fetchAllProjects = async (orcidId: string): Promise<Project[]> => {
+  const fetchAllProjects = useCallback(async (orcidId: string): Promise<Project[]> => {
     try {
       setProjectsLoading(true);
       
@@ -309,10 +301,10 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
     } finally {
       setProjectsLoading(false);
     }
-  };
+  }, [API_BASE_URL]);
 
   // Função para buscar dados básicos do ORCID primeiro
-  const fetchORCIDBasicData = async (orcidId: string) => {
+  const fetchORCIDBasicData = useCallback(async (orcidId: string) => {
     try {
       setForeignStatus('loading');
       
@@ -370,9 +362,17 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
       // Atualizar estados
       setAllPublications(publications);
       setAllProjects(projects);
+      
+      // CORREÇÃO PRINCIPAL: Atualizar researcher com publicações e projetos
+      const updatedResearcher = {
+        ...researcherData,
+        publications,
+        projects,
+      };
+      setResearcher(updatedResearcher);
 
       // Salvar no cache
-      saveToCache(orcidId, researcherData, publications, projects, 'success');
+      saveToCache(orcidId, updatedResearcher, publications, projects, 'success');
 
     } catch (error) {
       console.error('Erro ao buscar dados do pesquisador:', error);
@@ -384,52 +384,61 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
         saveToCache(orcidId, researcher, [], [], 'error');
       }
     }
-  };
+  }, [isORCIDFormat, loadFromCache, getDisplayName, fetchAllPublications, fetchAllProjects, saveToCache, API_BASE_URL]);
 
   // Função para tentar novamente (para perfis ORCID)
-  const handleRetry = () => {
+  const handleRetry = useCallback(() => {
     if (isForeignProfile && id) {
       // Limpar cache para forçar nova busca
       researcherCache.delete(id);
       
-      hasRun.current = false;
       setErrorMessage('');
       setAllPublications([]);
       setAllProjects([]);
+      setIsInitialized(false);
       fetchORCIDBasicData(id);
     }
-  };
+  }, [isForeignProfile, id, fetchORCIDBasicData]);
 
-  // Efeito que roda quando o componente carrega ou o ID muda
+  // Efeito principal que roda quando o componente carrega ou o ID muda
   useEffect(() => {
-    if (!id) return;
+    if (!id || isInitialized) return;
 
+    console.log('Inicializando componente para ID:', id);
+    
     // Reset estados quando ID muda
-    if (hasRun.current) {
-      hasRun.current = false;
-      setPublicationsPage(1);
-      setProjectsPage(1);
-    }
+    setPublicationsPage(1);
+    setProjectsPage(1);
+    setResearcher(null);
+    setIsCurrentUser(false);
+    setIsForeignProfile(false);
+    setForeignStatus('loading');
+    setErrorMessage('');
+    setAllPublications([]);
+    setAllProjects([]);
 
     // Verificar se é um perfil externo (ORCID) ou interno
     if (isORCIDFormat(id)) {
       // É um perfil externo (ORCID)
+      console.log('Perfil ORCID detectado:', id);
       setIsForeignProfile(true);
       setIsCurrentUser(false);
-      
-      if (!hasRun.current) {
-        hasRun.current = true;
-        fetchORCIDBasicData(id);
-      }
+      setIsInitialized(true);
+      fetchORCIDBasicData(id);
     } else {
       // É um perfil interno - usar a lógica original
+      console.log('Perfil interno detectado:', id);
       setIsForeignProfile(false);
+      setIsInitialized(true);
       
       // Marca que está carregando e carrega os dados
       loadResearcherData(id, (loadedResearcher) => {
         if (loadedResearcher) {
           setResearcher(loadedResearcher);
           setIsCurrentUser(id === 'current');
+          // CORREÇÃO: Para perfis internos, também definir os dados completos
+          setAllPublications(loadedResearcher.publications || []);
+          setAllProjects(loadedResearcher.projects || []);
         } else {
           setResearcher(null);
           // Mostra mensagem de erro
@@ -441,18 +450,12 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
         }
       });
     }
-  }, [id]);
+  }, [id, isInitialized, isORCIDFormat, fetchORCIDBasicData, loadResearcherData]);
 
-  // Atualizar researcher com publicações e projetos quando eles carregarem
+  // Reset quando o ID muda
   useEffect(() => {
-    if (researcher && isForeignProfile && (allPublications.length > 0 || allProjects.length > 0)) {
-      setResearcher(prevResearcher => ({
-        ...prevResearcher!,
-        publications: allPublications,
-        projects: allProjects,
-      }));
-    }
-  }, [allPublications, allProjects, researcher, isForeignProfile]);
+    setIsInitialized(false);
+  }, [id]);
 
   // Paginação para perfis internos (em memória)
   const getInternalPublicationsPagination = useMemo(() => {
@@ -525,13 +528,13 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
   }, [allProjects, projectsPage, isForeignProfile]);
 
   // Handlers para perfis internos e ORCID
-  const handlePublicationsPageChange = (newPage: number) => {
+  const handlePublicationsPageChange = useCallback((newPage: number) => {
     setPublicationsPage(newPage);
-  };
+  }, []);
 
-  const handleProjectsPageChange = (newPage: number) => {
+  const handleProjectsPageChange = useCallback((newPage: number) => {
     setProjectsPage(newPage);
-  };
+  }, []);
 
   // Tela de carregamento - apenas para o perfil básico
   if (loading || (isForeignProfile && foreignStatus === 'loading')) {
@@ -600,6 +603,9 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
           projectsPagination={getInternalProjectsPagination!}
           onProjectsPageChange={handleProjectsPageChange}
           isMemoryPagination={true}
+          // CORREÇÃO: Passar dados completos explicitamente
+          allPublications={allPublications}
+          allProjects={allProjects}
         />
       </div>
     );
@@ -665,9 +671,12 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
               onPublicationsPageChange={handlePublicationsPageChange}
               projectsPagination={isForeignProfile ? getORCIDProjectsPagination! : getInternalProjectsPagination!}
               onProjectsPageChange={handleProjectsPageChange}
-              isMemoryPagination={true} // Agora sempre true, pois dados estão em memória
+              isMemoryPagination={true}
               publicationsLoading={publicationsLoading}
               projectsLoading={projectsLoading}
+              // CORREÇÃO PRINCIPAL: Sempre passar os dados completos
+              allPublications={allPublications}
+              allProjects={allProjects}
             />
           </TabsContent>
           

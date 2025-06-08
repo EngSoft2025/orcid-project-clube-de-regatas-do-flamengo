@@ -34,6 +34,9 @@ interface ResearcherProfileProps {
   // Estados de loading para API
   publicationsLoading?: boolean;
   projectsLoading?: boolean;
+  // NOVO: Props explícitas para dados completos (para garantir consistência)
+  allPublications?: Publication[];
+  allProjects?: Project[];
 }
 
 const ResearcherProfile = ({ 
@@ -45,10 +48,26 @@ const ResearcherProfile = ({
   onProjectsPageChange,
   isMemoryPagination,
   publicationsLoading = false,
-  projectsLoading = false
+  projectsLoading = false,
+  allPublications,
+  allProjects
 }: ResearcherProfileProps) => {
   // Estado local apenas para controlar qual gráfico está ativo
   const [activeChartTab, setActiveChartTab] = useState("publications");
+
+  // CORREÇÃO: Usar dados explícitos ou fallback para researcher
+  const effectiveAllPublications = allPublications || researcher.publications || [];
+  const effectiveAllProjects = allProjects || researcher.projects || [];
+
+  // Debug: Log para verificar dados
+  console.log('ResearcherProfile render:', {
+    researcherPublications: researcher.publications?.length || 0,
+    researcherProjects: researcher.projects?.length || 0,
+    allPublications: effectiveAllPublications.length,
+    allProjects: effectiveAllProjects.length,
+    paginatedPublications: publicationsPagination.items.length,
+    paginatedProjects: projectsPagination.items.length
+  });
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl">
@@ -60,20 +79,20 @@ const ResearcherProfile = ({
         
         {/* Coluna principal (2/3 da largura) */}
         <div className="md:col-span-2">
-          {/* Seção de publicações - passa dados paginados */}
+          {/* Seção de publicações - usa dados efetivos para contagem */}
           <PublicationSection 
             publications={publicationsPagination.items}
-            allPublications={researcher.publications} // NOVO: Passar todas as publicações para contagem correta
+            allPublications={effectiveAllPublications} // CORREÇÃO: Usar dados efetivos
             pagination={publicationsPagination}
             onPageChange={onPublicationsPageChange}
             loading={publicationsLoading}
             isMemoryPagination={isMemoryPagination}
           />
           
-          {/* Seção de projetos - passa dados paginados */}
+          {/* Seção de projetos - usa dados efetivos */}
           <ProjectSection 
             projects={projectsPagination.items}
-            publications={researcher.publications} // Para gráficos, usa todos os dados
+            publications={effectiveAllPublications} // CORREÇÃO: Para gráficos, usa dados efetivos
             pagination={projectsPagination}
             onPageChange={onProjectsPageChange}
             loading={projectsLoading}
@@ -96,16 +115,17 @@ const ResearcherProfile = ({
               
               {/* Conteúdo de cada tab */}
               <TabsContent value="publications">
-                {/* Para gráficos, usa todos os dados não paginados se disponível */}
+                {/* CORREÇÃO: Sempre usar dados completos para gráficos */}
                 <PublicationChart 
-                  publications={isMemoryPagination ? researcher.publications : publicationsPagination.items} 
+                  publications={effectiveAllPublications} 
                 />
               </TabsContent>
               
               <TabsContent value="projects">
+                {/* CORREÇÃO: Sempre usar dados completos para gráficos */}
                 <ProjectPublicationChart 
-                  publications={isMemoryPagination ? researcher.publications : publicationsPagination.items}
-                  projects={isMemoryPagination ? researcher.projects : projectsPagination.items}
+                  publications={effectiveAllPublications}
+                  projects={effectiveAllProjects}
                 />
               </TabsContent>
             </Tabs>

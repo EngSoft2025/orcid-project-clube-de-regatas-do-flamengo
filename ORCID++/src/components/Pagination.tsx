@@ -86,26 +86,25 @@ const Pagination = ({
 
         {/* Números das páginas */}
         <div className="flex items-center gap-1">
-          {visiblePages.map((page, index) => (
-            <React.Fragment key={index}>
-              {page === '...' ? (
-                <span className="px-2 py-1 text-gray-500">...</span>
-              ) : (
-                <Button
-                  variant={currentPage === page ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => onPageChange(page as number)}
-                  className={`min-w-[2.5rem] ${
-                    currentPage === page 
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                      : 'hover:bg-blue-50'
-                  }`}
-                >
-                  {page}
-                </Button>
-              )}
-            </React.Fragment>
-          ))}
+          {visiblePages.map((page, index) => 
+            page === '...' ? (
+              <span key={index} className="px-2 py-1 text-gray-500">...</span>
+            ) : (
+              <Button
+                key={index}
+                variant={currentPage === page ? "default" : "outline"}
+                size="sm"
+                onClick={() => onPageChange(page as number)}
+                className={`min-w-[2.5rem] ${
+                  currentPage === page 
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                    : 'hover:bg-blue-50'
+                }`}
+              >
+                {page}
+              </Button>
+            )
+          )}
         </div>
 
         {/* Botão próxima página */}

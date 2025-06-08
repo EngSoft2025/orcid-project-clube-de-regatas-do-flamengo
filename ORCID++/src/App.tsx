@@ -228,6 +228,64 @@ const App = () => {
     }
   }, [auth]);
 
+  // Função para excluir uma publicação
+  const handleDeletePublication = useCallback((publicationId: string) => {
+    setCurrentResearcher(prev => {
+      const updatedPublications = prev.publications.filter(pub => pub.id !== publicationId);
+      return { ...prev, publications: updatedPublications };
+    });
+
+    // Se o usuário está autenticado, também atualizar o estado de auth
+    if (auth.isAuthenticated && auth.researcher) {
+      const updatedPublications = auth.researcher.publications.filter(pub => pub.id !== publicationId);
+      const updatedResearcher = { ...auth.researcher, publications: updatedPublications };
+      
+      setAuth(prev => ({ ...prev, researcher: updatedResearcher }));
+      
+      // Persistir no localStorage
+      try {
+        const authData = {
+          isAuthenticated: true,
+          token: auth.token,
+          researcher: updatedResearcher,
+          expiresAt: Date.now() + (20 * 365 * 24 * 60 * 60 * 1000),
+        };
+        localStorage.setItem('orcid_auth', JSON.stringify(authData));
+      } catch (error) {
+        console.error('Error saving updated auth state:', error);
+      }
+    }
+  }, [auth]);
+
+  // Função para excluir um projeto
+  const handleDeleteProject = useCallback((projectId: string) => {
+    setCurrentResearcher(prev => {
+      const updatedProjects = prev.projects.filter(proj => proj.id !== projectId);
+      return { ...prev, projects: updatedProjects };
+    });
+
+    // Se o usuário está autenticado, também atualizar o estado de auth
+    if (auth.isAuthenticated && auth.researcher) {
+      const updatedProjects = auth.researcher.projects.filter(proj => proj.id !== projectId);
+      const updatedResearcher = { ...auth.researcher, projects: updatedProjects };
+      
+      setAuth(prev => ({ ...prev, researcher: updatedResearcher }));
+      
+      // Persistir no localStorage
+      try {
+        const authData = {
+          isAuthenticated: true,
+          token: auth.token,
+          researcher: updatedResearcher,
+          expiresAt: Date.now() + (20 * 365 * 24 * 60 * 60 * 1000),
+        };
+        localStorage.setItem('orcid_auth', JSON.stringify(authData));
+      } catch (error) {
+        console.error('Error saving updated auth state:', error);
+      }
+    }
+  }, [auth]);
+
   // useEffect para carregar dados do pesquisador atual via API do ORCID
   useEffect(() => {
     const fetchCurrentResearcherData = async () => {
@@ -370,6 +428,7 @@ const App = () => {
                   <Publications 
                     publications={currentResearcher.publications}
                     loading={loading}
+                    onDeletePublication={handleDeletePublication}
                   />
                 } 
               />
@@ -380,6 +439,7 @@ const App = () => {
                     projects={currentResearcher.projects}
                     publications={currentResearcher.publications}
                     loading={loading}
+                    onDeleteProject={handleDeleteProject}
                   />
                 }
               />

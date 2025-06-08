@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Calendar, FileText, Search, Pencil } from 'lucide-react';
+import { Plus, Calendar, FileText, Search, Pencil, Trash2 } from 'lucide-react';
 import { Project, Publication, Researcher } from '../types';
 import { Input } from '@/components/ui/input';
 import { Link, useNavigate } from 'react-router-dom';
@@ -14,9 +14,10 @@ interface ProjectsProps {
   publications: Publication[];
   researcher?: Researcher;
   loading: boolean;
+  onDeleteProject: (projectId: string) => void;
 }
 
-const Projects = ({ projects, publications, researcher, loading }: ProjectsProps) => {
+const Projects = ({ projects, publications, researcher, loading, onDeleteProject }: ProjectsProps) => {
   const navigate = useNavigate();
   // Estado local para controlar a busca e paginação
   const [searchQuery, setSearchQuery] = useState('');
@@ -93,6 +94,13 @@ const Projects = ({ projects, publications, researcher, loading }: ProjectsProps
         researcher 
       }
     });
+  };
+
+  // Função para excluir um projeto
+  const handleDeleteProject = (project: Project) => {
+    if (window.confirm(`Tem certeza que deseja excluir o projeto "${project.name || project.title}"?`)) {
+      onDeleteProject(project.id);
+    }
   };
 
   // Função para mudar página
@@ -187,7 +195,7 @@ const Projects = ({ projects, publications, researcher, loading }: ProjectsProps
                         {(project.publications?.length || 0)} publicações
                       </span>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <button 
                         onClick={() => handleViewProjectDetails(project)}
                         className="text-sm text-blue-600 hover:underline"
@@ -197,11 +205,20 @@ const Projects = ({ projects, publications, researcher, loading }: ProjectsProps
                       <Button 
                         size="sm" 
                         variant="ghost" 
-                        className="text-gray-500 hover:text-blue-600 flex items-center gap-1"
+                        className="text-gray-500 hover:text-blue-600 flex items-center gap-1 px-2"
                         onClick={() => handleEditProject(project)}
                       >
                         <Pencil className="w-4 h-4" />
                         Editar
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 flex items-center gap-1 px-2"
+                        onClick={() => handleDeleteProject(project)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Excluir
                       </Button>
                     </div>
                   </div>

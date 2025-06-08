@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Calendar, FileText, Search, Pencil } from 'lucide-react';
+import { Plus, Calendar, FileText, Search, Pencil, Trash2 } from 'lucide-react';
 import { Publication, Project, Researcher } from '../types';
 import { Input } from '@/components/ui/input';
 import { Link, useNavigate } from 'react-router-dom';
@@ -11,9 +11,10 @@ import Pagination from '../components/Pagination';
 interface PublicationsProps {
   publications: Publication[];
   loading: boolean;
+  onDeletePublication: (publicationId: string) => void;
 }
 
-const Publications = ({ publications, loading }: PublicationsProps) => {
+const Publications = ({ publications, loading, onDeletePublication }: PublicationsProps) => {
   const navigate = useNavigate();
   // Estado local para controlar a busca e paginação
   const [searchQuery, setSearchQuery] = useState('');
@@ -68,6 +69,13 @@ const Publications = ({ publications, loading }: PublicationsProps) => {
         publication
       }
     });
+  };
+
+  // Função para excluir uma publicação
+  const handleDeletePublication = (publication: Publication) => {
+    if (window.confirm(`Tem certeza que deseja excluir a publicação "${publication.title}"?`)) {
+      onDeletePublication(publication.id);
+    }
   };
 
   // Função para mudar página
@@ -147,7 +155,7 @@ const Publications = ({ publications, loading }: PublicationsProps) => {
                   <div className="text-sm text-gray-500">
                     {publication.authors.length} autor(es)
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <button 
                       onClick={() => handleViewPublicationDetails(publication)}
                       className="text-sm text-blue-600 hover:underline"
@@ -157,11 +165,20 @@ const Publications = ({ publications, loading }: PublicationsProps) => {
                     <Button 
                       size="sm" 
                       variant="ghost" 
-                      className="text-gray-500 hover:text-blue-600 flex items-center gap-1"
+                      className="text-gray-500 hover:text-blue-600 flex items-center gap-1 px-2"
                       onClick={() => handleEditPublication(publication)}
                     >
                       <Pencil className="w-4 h-4" />
                       Editar
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 flex items-center gap-1 px-2"
+                      onClick={() => handleDeletePublication(publication)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Excluir
                     </Button>
                   </div>
                 </div>

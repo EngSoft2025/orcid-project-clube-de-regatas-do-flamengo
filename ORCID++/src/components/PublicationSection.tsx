@@ -121,22 +121,11 @@ const PublicationSection = ({
     return typeMap[type] || type || 'Other';
   };
 
-  // CORREÇÃO: Usar allPublications para contagem total, publications para exibição
-  const publicationsForCounting = allPublications || publications;
-  const publicationsForDisplay = publications;
+  // CORREÇÃO: Usar allPublications para contagem e paginação interna
+  const publicationsForProcessing = allPublications || publications;
 
-  // Agrupa publicações por tipo para CONTAGEM (usando todas as publicações)
-  const allGroupedPublications = publicationsForCounting.reduce((acc: Record<string, Publication[]>, pub) => {
-    const displayType = getDisplayType(pub.type);
-    if (!acc[displayType]) {
-      acc[displayType] = [];
-    }
-    acc[displayType].push(pub);
-    return acc;
-  }, {});
-
-  // Agrupa publicações por tipo para EXIBIÇÃO (usando publicações da página atual)
-  const displayGroupedPublications = publicationsForDisplay.reduce((acc: Record<string, Publication[]>, pub) => {
+  // Agrupa TODAS as publicações por tipo (para contagem e paginação interna)
+  const allGroupedPublications = publicationsForProcessing.reduce((acc: Record<string, Publication[]>, pub) => {
     const displayType = getDisplayType(pub.type);
     if (!acc[displayType]) {
       acc[displayType] = [];
@@ -146,7 +135,6 @@ const PublicationSection = ({
   }, {});
 
   // Remove tipos vazios (sem publicações) e ordena por número de publicações (decrescente)
-  // Usa a contagem total para ordenação
   const nonEmptyTypes = Object.entries(allGroupedPublications)
     .filter(([type, pubs]) => pubs.length > 0)
     .sort(([, a], [, b]) => b.length - a.length);
@@ -190,7 +178,7 @@ const PublicationSection = ({
     type: string, 
     allTypePubs: Publication[] 
   }) => {
-    // CORREÇÃO: Se não é paginação em memória, não mostrar paginação interna
+    // Se não é paginação em memória, não mostrar paginação interna
     if (!isMemoryPagination) return null;
     
     const currentPage = getCurrentPageForType(type);
@@ -251,7 +239,7 @@ const PublicationSection = ({
       </div>
       
       {/* Se não há publicações */}
-      {publicationsForDisplay.length === 0 ? (
+      {publicationsForProcessing.length === 0 ? (
         <div className="text-center py-8">
           {loading ? (
             <div className="flex items-center justify-center">
@@ -276,11 +264,8 @@ const PublicationSection = ({
 
           {/* Para cada tipo de publicação */}
           {nonEmptyTypes.map(([type, allTypePubs]) => {
-            // Usa a contagem total para o número no cabeçalho
+            // Usa todas as publicações deste tipo para paginação interna
             const totalCount = allTypePubs.length;
-            
-            // CORREÇÃO PRINCIPAL: Sempre usar allTypePubs para paginação interna
-            // pois estas são as publicações completas deste tipo
             const paginatedPubs = getPaginatedPublications(allTypePubs, type);
             const isExpanded = expandedTypes[type];
             

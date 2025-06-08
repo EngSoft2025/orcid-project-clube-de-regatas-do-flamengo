@@ -15,13 +15,17 @@ import Navigation from "./components/Navigation";
 import ResearcherProfilePage from "./pages/ResearcherProfilePage";
 import EditPublicationPage from "./pages/EditPublicationPage";
 import EditProjectPage from "./pages/EditProjectPage";
+import PublicationDetailPage from "./pages/PublicationDetailPage";
+import ProjectDetailPage from "./pages/ProjectDetailPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import OAuthCallback from "./pages/OAuthCallback";
 import NewPublicationPage from "./pages/NewPublicationPage";
 import NewProjectPage from "./pages/NewProjectPage";
 import { mockResearcherData, mockResearchers } from "./data/mockData";
-import { Researcher } from "./types";
+import { Researcher, Publication, Project } from "./types";
+import OtherProjectDetailPage from './components/OtherProjectDetailPage';
+import OtherPublicationDetailPage from './components/OtherPublicationDetailPage';
 
 const queryClient = new QueryClient();
 
@@ -157,6 +161,72 @@ const App = () => {
       });
     }
   }, [auth, allResearchers]);
+
+  // Função para atualizar uma publicação específica
+  const handleUpdatePublication = useCallback((updatedPublication: Publication) => {
+    setCurrentResearcher(prev => {
+      const updatedPublications = prev.publications.map(pub => 
+        pub.id === updatedPublication.id ? updatedPublication : pub
+      );
+      return { ...prev, publications: updatedPublications };
+    });
+
+    // Se o usuário está autenticado, também atualizar o estado de auth
+    if (auth.isAuthenticated && auth.researcher) {
+      const updatedPublications = auth.researcher.publications.map(pub => 
+        pub.id === updatedPublication.id ? updatedPublication : pub
+      );
+      const updatedResearcher = { ...auth.researcher, publications: updatedPublications };
+      
+      setAuth(prev => ({ ...prev, researcher: updatedResearcher }));
+      
+      // Persistir no localStorage
+      try {
+        const authData = {
+          isAuthenticated: true,
+          token: auth.token,
+          researcher: updatedResearcher,
+          expiresAt: Date.now() + (20 * 365 * 24 * 60 * 60 * 1000),
+        };
+        localStorage.setItem('orcid_auth', JSON.stringify(authData));
+      } catch (error) {
+        console.error('Error saving updated auth state:', error);
+      }
+    }
+  }, [auth]);
+
+  // Função para atualizar um projeto específico
+  const handleUpdateProject = useCallback((updatedProject: Project) => {
+    setCurrentResearcher(prev => {
+      const updatedProjects = prev.projects.map(proj => 
+        proj.id === updatedProject.id ? updatedProject : proj
+      );
+      return { ...prev, projects: updatedProjects };
+    });
+
+    // Se o usuário está autenticado, também atualizar o estado de auth
+    if (auth.isAuthenticated && auth.researcher) {
+      const updatedProjects = auth.researcher.projects.map(proj => 
+        proj.id === updatedProject.id ? updatedProject : proj
+      );
+      const updatedResearcher = { ...auth.researcher, projects: updatedProjects };
+      
+      setAuth(prev => ({ ...prev, researcher: updatedResearcher }));
+      
+      // Persistir no localStorage
+      try {
+        const authData = {
+          isAuthenticated: true,
+          token: auth.token,
+          researcher: updatedResearcher,
+          expiresAt: Date.now() + (20 * 365 * 24 * 60 * 60 * 1000),
+        };
+        localStorage.setItem('orcid_auth', JSON.stringify(authData));
+      } catch (error) {
+        console.error('Error saving updated auth state:', error);
+      }
+    }
+  }, [auth]);
 
   // useEffect para carregar dados do pesquisador atual via API do ORCID
   useEffect(() => {
@@ -344,13 +414,45 @@ const App = () => {
                   />
                 } 
               />
+              {/* Páginas de detalhes das publicações e projetos */}
+              <Route 
+                path="/publication/:publicationId" 
+                element={<PublicationDetailPage />} 
+              />
+              <Route 
+                path="/project/:projectId" 
+                element={<ProjectDetailPage />} 
+              />
               <Route 
                 path="/edit-publication/:id" 
-                element={<EditPublicationPage />} 
+                element={
+                  <EditPublicationPage 
+                    publications={currentResearcher.publications}
+                    projects={currentResearcher.projects}
+                    onUpdatePublication={handleUpdatePublication}
+                    isAuthenticated={auth.isAuthenticated}
+                    token={auth.token}
+                  />
+                } 
               />
               <Route 
                 path="/edit-project/:id" 
-                element={<EditProjectPage />} 
+                element={
+                  <EditProjectPage 
+                    projects={currentResearcher.projects}
+                    onUpdateProject={handleUpdateProject}
+                    isAuthenticated={auth.isAuthenticated}
+                    token={auth.token}
+                  />
+                } 
+              />
+              <Route 
+                path="/other-project/:projectId" 
+                element={<OtherProjectDetailPage />} 
+              />
+              <Route 
+                path="/other-publication/:publicationId" 
+                element={<OtherPublicationDetailPage />} 
               />
               <Route 
                 path="/login" 

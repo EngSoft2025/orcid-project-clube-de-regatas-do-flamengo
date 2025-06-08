@@ -19,6 +19,18 @@ interface ResearcherProfilePageProps {
 
 const ITEMS_PER_PAGE = 10;
 
+// Sistema de cache global para pesquisadores
+const researcherCache = new Map<string, {
+  researcher: Researcher;
+  publications: Publication[];
+  projects: Project[];
+  lastFetch: number;
+  status: 'success' | 'error';
+}>();
+
+// Cache válido por 10 minutos (600000ms)
+const CACHE_DURATION = 10 * 60 * 1000;
+
 const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading }: ResearcherProfilePageProps) => {
   // Pega o ID da URL
   const { id } = useParams();
@@ -51,6 +63,46 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
     return orcidRegex.test(orcidId);
   };
 
+  // Verificar se os dados do cache são válidos
+  const isCacheValid = (cacheEntry: any): boolean => {
+    const now = Date.now();
+    return (now - cacheEntry.lastFetch) < CACHE_DURATION;
+  };
+
+  // Carregar dados do cache se disponível e válido
+  const loadFromCache = (researcherId: string): boolean => {
+    const cached = researcherCache.get(researcherId);
+    if (cached && isCacheValid(cached)) {
+      console.log(`Carregando dados do cache para ${researcherId}`);
+      setResearcher(cached.researcher);
+      setAllPublications(cached.publications);
+      setAllProjects(cached.projects);
+      setForeignStatus(cached.status);
+      
+      // Atualizar researcher com publicações e projetos
+      setResearcher(prevResearcher => ({
+        ...cached.researcher,
+        publications: cached.publications,
+        projects: cached.projects,
+      }));
+      
+      return true;
+    }
+    return false;
+  };
+
+  // Salvar dados no cache
+  const saveToCache = (researcherId: string, researcherData: Researcher, publications: Publication[], projects: Project[], status: 'success' | 'error') => {
+    researcherCache.set(researcherId, {
+      researcher: researcherData,
+      publications,
+      projects,
+      lastFetch: Date.now(),
+      status
+    });
+    console.log(`Dados salvos no cache para ${researcherId}`);
+  };
+
   // Função para extrair dados básicos do perfil ORCID
   const getDisplayName = (profile: any): string => {
     const person = profile.person;
@@ -63,7 +115,7 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
   };
 
   // Função para buscar TODAS as publicações de uma vez
-  const fetchAllPublications = async (orcidId: string) => {
+  const fetchAllPublications = async (orcidId: string): Promise<Publication[]> => {
     try {
       setPublicationsLoading(true);
       
@@ -146,7 +198,7 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
           };
         });
 
-      setAllPublications(publications);
+      return publications;
 
     } catch (error) {
       console.error('Erro ao buscar publicações:', error);
@@ -155,13 +207,14 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
         description: "Não foi possível carregar as publicações do pesquisador.",
         variant: "destructive"
       });
+      return [];
     } finally {
       setPublicationsLoading(false);
     }
   };
 
   // Função para buscar TODOS os projetos de uma vez
-  const fetchAllProjects = async (orcidId: string) => {
+  const fetchAllProjects = async (orcidId: string): Promise<Project[]> => {
     try {
       setProjectsLoading(true);
       
@@ -243,7 +296,7 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
           };
         });
 
-      setAllProjects(projects);
+      return projects;
 
     } catch (error) {
       console.error('Erro ao buscar projetos:', error);
@@ -252,6 +305,7 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
         description: "Não foi possível carregar os projetos do pesquisador.",
         variant: "destructive"
       });
+      return [];
     } finally {
       setProjectsLoading(false);
     }
@@ -265,6 +319,11 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
       // Validar formato do ORCID ID
       if (!isORCIDFormat(orcidId)) {
         throw new Error('Formato de ORCID ID inválido');
+      }
+
+      // Verificar cache primeiro
+      if (loadFromCache(orcidId)) {
+        return;
       }
 
       // Buscar apenas o perfil básico do pesquisador
@@ -302,22 +361,37 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
       setResearcher(researcherData);
       setForeignStatus('success');
 
-      // Carregar publicações e projetos em paralelo, mas de forma assíncrona
-      Promise.all([
+      // Carregar publicações e projetos em paralelo
+      const [publications, projects] = await Promise.all([
         fetchAllPublications(orcidId),
         fetchAllProjects(orcidId)
       ]);
+
+      // Atualizar estados
+      setAllPublications(publications);
+      setAllProjects(projects);
+
+      // Salvar no cache
+      saveToCache(orcidId, researcherData, publications, projects, 'success');
 
     } catch (error) {
       console.error('Erro ao buscar dados do pesquisador:', error);
       setForeignStatus('error');
       setErrorMessage(error instanceof Error ? error.message : 'Erro desconhecido');
+      
+      // Salvar erro no cache (para evitar tentar buscar novamente imediatamente)
+      if (researcher) {
+        saveToCache(orcidId, researcher, [], [], 'error');
+      }
     }
   };
 
   // Função para tentar novamente (para perfis ORCID)
   const handleRetry = () => {
     if (isForeignProfile && id) {
+      // Limpar cache para forçar nova busca
+      researcherCache.delete(id);
+      
       hasRun.current = false;
       setErrorMessage('');
       setAllPublications([]);
@@ -329,6 +403,13 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
   // Efeito que roda quando o componente carrega ou o ID muda
   useEffect(() => {
     if (!id) return;
+
+    // Reset estados quando ID muda
+    if (hasRun.current) {
+      hasRun.current = false;
+      setPublicationsPage(1);
+      setProjectsPage(1);
+    }
 
     // Verificar se é um perfil externo (ORCID) ou interno
     if (isORCIDFormat(id)) {
@@ -459,6 +540,11 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
           <p className="text-lg text-gray-600">Carregando perfil do pesquisador...</p>
+          {isForeignProfile && (
+            <p className="text-sm text-gray-500 mt-2">
+              {researcherCache.has(id || '') ? 'Verificando cache...' : 'Buscando dados do ORCID...'}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -523,13 +609,23 @@ const ResearcherProfilePage = ({ getResearcherById, loadResearcherData, loading 
   return (
     <div className="min-h-screen bg-gray-50 pt-6">
       <div className="container mx-auto px-4 mb-6">
-        <Button 
-          variant="outline" 
-          onClick={() => navigate(-1)} 
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft size={16} /> Voltar
-        </Button>
+        <div className="flex items-center justify-between">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate(-1)} 
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft size={16} /> Voltar
+          </Button>
+          
+          {/* Indicador de cache */}
+          {isForeignProfile && researcherCache.has(id || '') && (
+            <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-1 rounded-full">
+              <CheckCircle className="h-4 w-4" />
+              Dados em cache
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="container mx-auto px-4">

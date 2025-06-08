@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus, Calendar, FileText, Search, Pencil } from 'lucide-react';
-import { Project, Publication } from '../types';
+import { Project, Publication, Researcher } from '../types';
 import { Input } from '@/components/ui/input';
 import { Link, useNavigate } from 'react-router-dom';
 import { Progress } from '@/components/ui/progress';
@@ -12,10 +12,11 @@ import Pagination from '../components/Pagination';
 interface ProjectsProps {
   projects: Project[];
   publications: Publication[];
+  researcher?: Researcher;
   loading: boolean;
 }
 
-const Projects = ({ projects, publications, loading }: ProjectsProps) => {
+const Projects = ({ projects, publications, researcher, loading }: ProjectsProps) => {
   const navigate = useNavigate();
   // Estado local para controlar a busca e paginação
   const [searchQuery, setSearchQuery] = useState('');
@@ -77,8 +78,21 @@ const Projects = ({ projects, publications, loading }: ProjectsProps) => {
   };
   
   // Função para editar um projeto
-  const handleEditProject = (projectId: string) => {
-    navigate(`/edit-project/${projectId}`);
+  const handleEditProject = (project: Project) => {
+    navigate(`/edit-project/${project.id}`, {
+      state: { project }
+    });
+  };
+
+  // Função para navegar para detalhes do projeto
+  const handleViewProjectDetails = (project: Project) => {
+    navigate(`/project/${project.id}`, {
+      state: { 
+        project, 
+        publications,
+        researcher 
+      }
+    });
   };
 
   // Função para mudar página
@@ -174,14 +188,17 @@ const Projects = ({ projects, publications, loading }: ProjectsProps) => {
                       </span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <Link to={`/project/${project.id}`} className="text-sm text-blue-600 hover:underline">
+                      <button 
+                        onClick={() => handleViewProjectDetails(project)}
+                        className="text-sm text-blue-600 hover:underline"
+                      >
                         Ver detalhes
-                      </Link>
+                      </button>
                       <Button 
                         size="sm" 
                         variant="ghost" 
                         className="text-gray-500 hover:text-blue-600 flex items-center gap-1"
-                        onClick={() => handleEditProject(project.id)}
+                        onClick={() => handleEditProject(project)}
                       >
                         <Pencil className="w-4 h-4" />
                         Editar

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus, Calendar, FileText, Search, Pencil } from 'lucide-react';
-import { Publication } from '../types';
+import { Publication, Project, Researcher } from '../types';
 import { Input } from '@/components/ui/input';
 import { Link, useNavigate } from 'react-router-dom';
 import Pagination from '../components/Pagination';
@@ -55,8 +55,19 @@ const Publications = ({ publications, loading }: PublicationsProps) => {
   }, [searchQuery]);
 
   // Função para editar uma publicação
-  const handleEditPublication = (publicationId: string) => {
-    navigate(`/edit-publication/${publicationId}`);
+  const handleEditPublication = (publication: Publication) => {
+    navigate(`/edit-publication/${publication.id}`, {
+      state: { publication }
+    });
+  };
+
+  // Função para navegar para detalhes da publicação
+  const handleViewPublicationDetails = (publication: Publication) => {
+    navigate(`/publication/${publication.id}`, {
+      state: { 
+        publication
+      }
+    });
   };
 
   // Função para mudar página
@@ -137,14 +148,17 @@ const Publications = ({ publications, loading }: PublicationsProps) => {
                     {publication.authors.length} autor(es)
                   </div>
                   <div className="flex items-center gap-3">
-                    <Link to={`/publication/${publication.id}`} className="text-sm text-blue-600 hover:underline">
+                    <button 
+                      onClick={() => handleViewPublicationDetails(publication)}
+                      className="text-sm text-blue-600 hover:underline"
+                    >
                       Ver detalhes
-                    </Link>
+                    </button>
                     <Button 
                       size="sm" 
                       variant="ghost" 
                       className="text-gray-500 hover:text-blue-600 flex items-center gap-1"
-                      onClick={() => handleEditPublication(publication.id || '')}
+                      onClick={() => handleEditPublication(publication)}
                     >
                       <Pencil className="w-4 h-4" />
                       Editar

@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Calendar, FileText, Search } from 'lucide-react';
-import { Project, Publication } from '../types';
+import { Project, Publication, Researcher } from '../types';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import Pagination from './Pagination';
@@ -9,9 +10,11 @@ import Pagination from './Pagination';
 interface OtherResearcherProjectsProps {
   projects: Project[];
   publications: Publication[];
+  researcher?: Researcher;
 }
 
-const OtherResearcherProjects = ({ projects, publications }: OtherResearcherProjectsProps) => {
+const OtherResearcherProjects = ({ projects, publications, researcher }: OtherResearcherProjectsProps) => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(6); // 6 projetos por página (3x2 grid)
@@ -67,6 +70,17 @@ const OtherResearcherProjects = ({ projects, publications }: OtherResearcherProj
     return 'text-green-500';
   };
 
+  // Função para navegar para detalhes do projeto
+  const handleProjectClick = (project: Project) => {
+    navigate(`/other-project/${project.id}`, {
+      state: {
+        project,
+        publications,
+        researcher
+      }
+    });
+  };
+
   // Função para mudar página
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -98,9 +112,13 @@ const OtherResearcherProjects = ({ projects, publications }: OtherResearcherProj
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-[400px]">
           {paginationData.currentItems.map((project) => (
-            <Card key={project.id} className="p-5 bg-white border-gray-200 hover:border-blue-300 transition-colors">
+            <Card 
+              key={project.id} 
+              className="p-5 bg-white border-gray-200 hover:border-blue-300 transition-colors cursor-pointer"
+              onClick={() => handleProjectClick(project)}
+            >
               <div className="flex flex-col h-full">
-                <h3 className="text-lg font-medium text-blue-800 mb-2">
+                <h3 className="text-lg font-medium text-blue-800 mb-2 hover:underline">
                   {project.name || project.title}
                 </h3>
                 

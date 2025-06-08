@@ -6,101 +6,96 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Plus, Trash2, Save } from 'lucide-react';
-import { mockResearcherData } from '../data/mockData';
-import { Publication } from '../types';
+import { Publication, Project } from '../types';
 import { toast } from '@/hooks/use-toast';
 
-const EditPublicationPage = () => {
+interface EditPublicationPageProps {
+  publications: Publication[];
+  projects: Project[];
+  onUpdatePublication: (publication: Publication) => void;
+  isAuthenticated: boolean;
+  token: string | null;
+}
+
+const EditPublicationPage: React.FC<EditPublicationPageProps> = ({
+  publications,
+  projects,
+  onUpdatePublication,
+  isAuthenticated,
+  token
+}) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [publication, setPublication] = useState<Publication | null>(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // useEffect para carregar dados da publicação via API do ORCID
+  // Carrega a publicação pelos dados já disponíveis
   useEffect(() => {
-    const fetchPublication = async () => {
-      setLoading(true);
-      try {
-        /* TODO: Substituir por busca real na API do ORCID
-         * 1. Fazer fetch para: https://pub.orcid.org/v3.0/{orcid-id}/work/{put-code}
-         * 2. Headers: Authorization: Bearer {access-token}, Accept: application/json
-         * 3. Mapear dados para interface Publication
-         * 
-         * Exemplo:
-         * const orcidId = getCurrentUserOrcidId();
-         * const accessToken = getAccessToken();
-         * 
-         * const response = await fetch(`https://pub.orcid.org/v3.0/${orcidId}/work/${id}`, {
-         *   headers: {
-         *     'Authorization': `Bearer ${accessToken}`,
-         *     'Accept': 'application/json'
-         *   }
-         * });
-         * const data = await response.json();
-         * setPublication(mapOrcidWorkToPublication(data));
-         */
-        
-        // Simulação com dados mockados
-        console.log(`Carregando publicação ${id}...`);
-        setTimeout(() => {
-          const foundPub = mockResearcherData.publications.find((p, index) => index.toString() === id);
-          if (foundPub) {
-            setPublication(JSON.parse(JSON.stringify(foundPub)));
-          }
-          setLoading(false);
-        }, 500);
-      } catch (error) {
-        console.error('Erro ao carregar publicação:', error);
-        toast({
-          title: "Erro",
-          description: "Não foi possível carregar os dados da publicação.",
-          variant: "destructive"
-        });
-        setLoading(false);
-      }
-    };
+    if (!id) return;
+    console.log(publications);
+    
+    const foundPub = publications.find(p => p.id === id);
+    const meu_item = JSON.parse(JSON.stringify(foundPub));
 
-    fetchPublication();
-  }, [id]);
+    if (foundPub) {
+      // Cria uma cópia para edição
+      setPublication(meu_item);
+    }
+
+    if (id && publications.length > 0 && !meu_item) {
+      toast({
+        title: "Publicação não encontrada",
+        description: "A publicação solicitada não foi encontrada.",
+        variant: "destructive"
+      });
+      navigate('/publications');
+    }
+
+  }, [id, publications]);
 
   const handleSave = async () => {
     if (!publication) return;
     setSaving(true);
     
     try {
-      /* TODO: Implementar salvamento via API do ORCID
-       * 1. Mapear dados da interface Publication para formato ORCID Work
-       * 2. Fazer PUT request para: https://api.orcid.org/v3.0/{orcid-id}/work/{put-code}
-       * 3. Headers: Authorization: Bearer {access-token}, Content-Type: application/json
-       * 
-       * Exemplo:
-       * const workData = mapPublicationToOrcidWork(publication);
-       * 
-       * const response = await fetch(`https://api.orcid.org/v3.0/${orcidId}/work/${id}`, {
-       *   method: 'PUT',
-       *   headers: {
-       *     'Authorization': `Bearer ${accessToken}`,
-       *     'Content-Type': 'application/json'
-       *   },
-       *   body: JSON.stringify(workData)
-       * });
-       * 
-       * if (!response.ok) {
-       *   throw new Error('Erro ao salvar publicação');
-       * }
-       */
+      if (isAuthenticated && token) {
+        /* TODO: Implementar salvamento via API do ORCID
+         * 1. Mapear dados da interface Publication para formato ORCID Work
+         * 2. Fazer PUT request para: https://api.orcid.org/v3.0/{orcid-id}/work/{put-code}
+         * 3. Headers: Authorization: Bearer {access-token}, Content-Type: application/json
+         * 
+         * Exemplo:
+         * const workData = mapPublicationToOrcidWork(publication);
+         * 
+         * const response = await fetch(`https://api.orcid.org/v3.0/${orcidId}/work/${putCode}`, {
+         *   method: 'PUT',
+         *   headers: {
+         *     'Authorization': `Bearer ${token}`,
+         *     'Content-Type': 'application/json'
+         *   },
+         *   body: JSON.stringify(workData)
+         * });
+         * 
+         * if (!response.ok) {
+         *   throw new Error('Erro ao salvar publicação');
+         * }
+         */
+        
+        console.log('Salvando publicação via API do ORCID...', publication);
+      }
       
-      // Simulação de salvamento
-      console.log('Salvando alterações da publicação...', publication);
+      // Atualiza o estado local através da função callback
+      onUpdatePublication(publication);
+      
+      // Simula delay para feedback visual
       setTimeout(() => {
         toast({
           title: "Publicação salva",
           description: "As alterações foram salvas com sucesso.",
         });
         setSaving(false);
-        navigate(-1);
-      }, 1000);
+        navigate('/publications');
+      }, 500);
     } catch (error) {
       console.error('Erro ao salvar publicação:', error);
       toast({
@@ -176,23 +171,11 @@ const EditPublicationPage = () => {
     });
   };
 
-  if (loading) {
+  // Loading state enquanto não carregou a publicação
+  if (!publication) {
     return (
       <div className="container mx-auto px-4 py-8 flex justify-center items-center">
         <p>Carregando dados da publicação...</p>
-      </div>
-    );
-  }
-
-  if (!publication) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <Card className="p-6">
-          <div className="text-center">
-            <h2 className="text-xl font-bold text-red-600 mb-4">Publicação não encontrada</h2>
-            <Button onClick={() => navigate('/publications')}>Voltar para Publicações</Button>
-          </div>
-        </Card>
       </div>
     );
   }
@@ -349,7 +332,7 @@ const EditPublicationPage = () => {
               className="w-full mt-1 border border-gray-300 rounded-md p-2"
             >
               <option value="">Nenhum projeto</option>
-              {mockResearcherData.projects.map(project => (
+              {projects.map(project => (
                 <option key={project.id} value={project.name}>{project.name}</option>
               ))}
             </select>

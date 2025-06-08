@@ -1,16 +1,20 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileText, Search, Filter } from 'lucide-react';
-import { Publication } from '../types';
+import { Publication, Project, Researcher } from '../types';
 import { Input } from '@/components/ui/input';
 import Pagination from './Pagination';
 
 interface OtherResearcherPublicationsProps {
   publications: Publication[];
+  projects?: Project[];
+  researcher?: Researcher;
 }
 
-const OtherResearcherPublications = ({ publications }: OtherResearcherPublicationsProps) => {
+const OtherResearcherPublications = ({ publications, projects = [], researcher }: OtherResearcherPublicationsProps) => {
+  const navigate = useNavigate();
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -54,6 +58,17 @@ const OtherResearcherPublications = ({ publications }: OtherResearcherPublicatio
   }, [searchQuery, filter]);
 
   const publicationTypes = [...new Set(publications.map(pub => pub.type))];
+
+  // Função para navegar para detalhes da publicação
+  const handlePublicationClick = (publication: Publication) => {
+    navigate(`/other-publication/${publication.id}`, {
+      state: {
+        publication,
+        projects,
+        researcher
+      }
+    });
+  };
 
   // Função para mudar página
   const handlePageChange = (page: number) => {
@@ -109,11 +124,15 @@ const OtherResearcherPublications = ({ publications }: OtherResearcherPublicatio
           <TabsContent value="grid" className="mt-0">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[500px]">
               {paginationData.currentItems.map((pub, index) => (
-                <Card key={index} className="p-4 bg-white border-gray-200 hover:border-blue-300 transition-colors">
+                <Card 
+                  key={index} 
+                  className="p-4 bg-white border-gray-200 hover:border-blue-300 transition-colors cursor-pointer"
+                  onClick={() => handlePublicationClick(pub)}
+                >
                   <div className="flex items-start">
                     <FileText className="text-blue-500 mr-3 mt-1 flex-shrink-0" />
                     <div className="flex-1">
-                      <h3 className="font-medium text-blue-800 mb-1 line-clamp-2">{pub.title}</h3>
+                      <h3 className="font-medium text-blue-800 mb-1 line-clamp-2 hover:underline">{pub.title}</h3>
                       <p className="text-sm text-gray-600 mb-2 line-clamp-2">{pub.authors.map(a => a.name).join(', ')}</p>
                       <p className="text-xs text-gray-500 mb-2 line-clamp-1">{pub.source}</p>
                       <div className="flex flex-wrap gap-2">
@@ -130,10 +149,14 @@ const OtherResearcherPublications = ({ publications }: OtherResearcherPublicatio
           <TabsContent value="list" className="mt-0">
             <div className="space-y-3 min-h-[500px]">
               {paginationData.currentItems.map((pub, index) => (
-                <Card key={index} className="p-4 bg-white border-gray-200 hover:border-blue-300 transition-colors">
+                <Card 
+                  key={index} 
+                  className="p-4 bg-white border-gray-200 hover:border-blue-300 transition-colors cursor-pointer"
+                  onClick={() => handlePublicationClick(pub)}
+                >
                   <div className="flex justify-between">
                     <div className="flex-1">
-                      <h3 className="font-medium text-blue-800 mb-1">{pub.title}</h3>
+                      <h3 className="font-medium text-blue-800 mb-1 hover:underline">{pub.title}</h3>
                       <p className="text-sm text-gray-600 mb-1">{pub.authors.map(a => a.name).join(', ')}</p>
                       <p className="text-sm text-gray-500">{pub.source}, {pub.year}</p>
                     </div>

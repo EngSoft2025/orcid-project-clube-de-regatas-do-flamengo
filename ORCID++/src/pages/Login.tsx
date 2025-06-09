@@ -9,7 +9,7 @@ const Login = () => {
   const handleOrcidLogin = () => {
     // ORCID OAuth parameters
     const clientId = 'APP-GVPBMVHOEBR3RKKI';
-    const redirectUri = encodeURIComponent('http://172.24.59.101:8080/login/callback');
+    const redirectUri = encodeURIComponent('http://172.24.33.196:8080/login/callback');
     const scope = encodeURIComponent('/authenticate');
     const responseType = 'code';
     const state = Math.random().toString(36).substring(2, 15); // Generate random state for security

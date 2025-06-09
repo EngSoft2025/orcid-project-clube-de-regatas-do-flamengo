@@ -1,24 +1,28 @@
-
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Calendar, FileText, Search, Pencil } from 'lucide-react';
-import { Project, Publication } from '../types';
+import { Plus, Calendar, FileText, Search, Pencil, Trash2 } from 'lucide-react';
+import { Project, Publication, Researcher } from '../types';
 import { Input } from '@/components/ui/input';
 import { Link, useNavigate } from 'react-router-dom';
 import { Progress } from '@/components/ui/progress';
+import Pagination from '../components/Pagination';
 
 // Interface para definir quais props este componente recebe do App
 interface ProjectsProps {
   projects: Project[];
   publications: Publication[];
+  researcher?: Researcher;
   loading: boolean;
+  onDeleteProject: (projectId: string) => void;
 }
 
-const Projects = ({ projects, publications, loading }: ProjectsProps) => {
+const Projects = ({ projects, publications, researcher, loading, onDeleteProject }: ProjectsProps) => {
   const navigate = useNavigate();
-  // Estado local para controlar a busca
+  // Estado local para controlar a busca e paginação
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(6); // 6 projetos por página (3x2 grid)
   
   // Filtra projetos baseado na busca do usuário
   const filteredProjects = projects.filter(project => {
@@ -28,6 +32,28 @@ const Projects = ({ projects, publications, loading }: ProjectsProps) => {
     const descMatch = project.description.toLowerCase().includes(searchQuery.toLowerCase());
     return nameMatch || titleMatch || descMatch;
   });
+
+  // Calcula paginação
+  const paginationData = useMemo(() => {
+    const totalItems = filteredProjects.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const currentItems = filteredProjects.slice(startIndex, endIndex);
+
+    return {
+      totalItems,
+      totalPages,
+      currentItems,
+      startIndex,
+      endIndex
+    };
+  }, [filteredProjects, currentPage, itemsPerPage]);
+
+  // Reset página quando busca muda
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   // Função para calcular progresso de um projeto
   const calculateProgress = (project: Project) => {
@@ -53,8 +79,35 @@ const Projects = ({ projects, publications, loading }: ProjectsProps) => {
   };
   
   // Função para editar um projeto
-  const handleEditProject = (projectId: string) => {
-    navigate(`/edit-project/${projectId}`);
+  const handleEditProject = (project: Project) => {
+    navigate(`/edit-project/${project.id}`, {
+      state: { project }
+    });
+  };
+
+  // Função para navegar para detalhes do projeto
+  const handleViewProjectDetails = (project: Project) => {
+    navigate(`/project/${project.id}`, {
+      state: { 
+        project, 
+        publications,
+        researcher 
+      }
+    });
+  };
+
+  // Função para excluir um projeto
+  const handleDeleteProject = (project: Project) => {
+    if (window.confirm(`Tem certeza que deseja excluir o projeto "${project.name || project.title}"?`)) {
+      onDeleteProject(project.id);
+    }
+  };
+
+  // Função para mudar página
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll para o topo da lista
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Se está carregando, mostra tela de loading
@@ -94,10 +147,17 @@ const Projects = ({ projects, publications, loading }: ProjectsProps) => {
             />
           </div>
         </div>
+
+        {/* Contador de resultados */}
+        {searchQuery && (
+          <div className="mb-4 text-sm text-gray-600">
+            {filteredProjects.length} projeto(s) encontrado(s) para "{searchQuery}"
+          </div>
+        )}
         
         {/* Grid de projetos */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {filteredProjects.map((project) => (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-[400px]">
+          {paginationData.currentItems.map((project) => (
             <Card key={project.id} className="p-5 bg-white border-gray-200 hover:border-blue-300 transition-colors">
               <div className="flex flex-col h-full">
                 <h3 className="text-lg font-medium text-blue-800 mb-2">
@@ -135,18 +195,30 @@ const Projects = ({ projects, publications, loading }: ProjectsProps) => {
                         {(project.publications?.length || 0)} publicações
                       </span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <Link to={`/project/${project.id}`} className="text-sm text-blue-600 hover:underline">
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => handleViewProjectDetails(project)}
+                        className="text-sm text-blue-600 hover:underline"
+                      >
                         Ver detalhes
-                      </Link>
+                      </button>
                       <Button 
                         size="sm" 
                         variant="ghost" 
-                        className="text-gray-500 hover:text-blue-600 flex items-center gap-1"
-                        onClick={() => handleEditProject(project.id)}
+                        className="text-gray-500 hover:text-blue-600 flex items-center gap-1 px-2"
+                        onClick={() => handleEditProject(project)}
                       >
                         <Pencil className="w-4 h-4" />
                         Editar
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 flex items-center gap-1 px-2"
+                        onClick={() => handleDeleteProject(project)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Excluir
                       </Button>
                     </div>
                   </div>
@@ -159,9 +231,20 @@ const Projects = ({ projects, publications, loading }: ProjectsProps) => {
         {/* Mensagem quando não há projetos */}
         {filteredProjects.length === 0 && (
           <div className="text-center py-10">
-            <p className="text-gray-500">Nenhum projeto encontrado.</p>
+            <p className="text-gray-500">
+              {searchQuery ? 'Nenhum projeto encontrado para sua busca.' : 'Nenhum projeto encontrado.'}
+            </p>
           </div>
         )}
+
+        {/* Componente de paginação */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={paginationData.totalPages}
+          onPageChange={handlePageChange}
+          itemsPerPage={itemsPerPage}
+          totalItems={paginationData.totalItems}
+        />
       </Card>
     </div>
   );

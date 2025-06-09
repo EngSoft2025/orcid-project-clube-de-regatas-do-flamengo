@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
@@ -7,32 +6,104 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Save } from 'lucide-react';
-import { mockResearcherData } from '../data/mockData';
 import { Project } from '../types';
 import { toast } from '@/hooks/use-toast';
 
-const EditProjectPage = () => {
+interface EditProjectPageProps {
+  projects: Project[];
+  onUpdateProject: (project: Project) => void;
+  isAuthenticated: boolean;
+  token: string | null;
+}
+
+const EditProjectPage: React.FC<EditProjectPageProps> = ({
+  projects,
+  onUpdateProject,
+  isAuthenticated,
+  token
+}) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
+  // Carrega o projeto pelos dados já disponíveis
   useEffect(() => {
-    const fetchProject = async () => {
-      setLoading(true);
-      // In a real app, fetch from API using the ID
-      // Here we're using mock data
-      setTimeout(() => {
-        const foundProject = mockResearcherData.projects.find(p => p.id === id);
-        if (foundProject) {
-          setProject(JSON.parse(JSON.stringify(foundProject)));
-        }
-        setLoading(false);
-      }, 500);
-    };
+    if (!id) return;
+    console.log(projects);
+    
+    const foundProject = projects.find(p => p.id === id);
+    const meu_item = JSON.parse(JSON.stringify(foundProject));
 
-    fetchProject();
-  }, [id]);
+    if (foundProject) {
+      // Cria uma cópia para edição
+      setProject(meu_item);
+    }
+
+    if (id && projects.length > 0 && !meu_item) {
+      toast({
+        title: "Projeto não encontrado",
+        description: "O projeto solicitado não foi encontrado.",
+        variant: "destructive"
+      });
+      navigate('/projects');
+    }
+
+  }, [id, projects]);
+
+  const handleSave = async () => {
+    if (!project) return;
+    setSaving(true);
+    
+    try {
+      if (isAuthenticated && token) {
+        /* TODO: Implementar salvamento via API do ORCID
+         * 1. Mapear dados da interface Project para formato ORCID Funding
+         * 2. Fazer PUT request para: https://api.orcid.org/v3.0/{orcid-id}/funding/{put-code}
+         * 3. Headers: Authorization: Bearer {access-token}, Content-Type: application/json
+         * 
+         * Exemplo:
+         * const fundingData = mapProjectToOrcidFunding(project);
+         * 
+         * const response = await fetch(`https://api.orcid.org/v3.0/${orcidId}/funding/${putCode}`, {
+         *   method: 'PUT',
+         *   headers: {
+         *     'Authorization': `Bearer ${token}`,
+         *     'Content-Type': 'application/json'
+         *   },
+         *   body: JSON.stringify(fundingData)
+         * });
+         * 
+         * if (!response.ok) {
+         *   throw new Error('Erro ao salvar projeto');
+         * }
+         */
+        
+        console.log('Salvando projeto via API do ORCID...', project);
+      }
+      
+      // Atualiza o estado local através da função callback
+      onUpdateProject(project);
+      
+      // Simula delay para feedback visual
+      setTimeout(() => {
+        toast({
+          title: "Projeto salvo",
+          description: "As alterações foram salvas com sucesso.",
+        });
+        setSaving(false);
+        navigate('/projects');
+      }, 500);
+    } catch (error) {
+      console.error('Erro ao salvar projeto:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar as alterações.",
+        variant: "destructive"
+      });
+      setSaving(false);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -42,32 +113,11 @@ const EditProjectPage = () => {
     });
   };
 
-  const handleSave = () => {
-    // In a real app, send to API
-    toast({
-      title: "Projeto salvo",
-      description: "As alterações foram salvas com sucesso.",
-    });
-    navigate(-1);
-  };
-
-  if (loading) {
-    return (
-      <div className="container mx-auto px-4 py-8 flex justify-center items-center">
-        <p>Carregando...</p>
-      </div>
-    );
-  }
-
+  // Loading state enquanto não carregou o projeto
   if (!project) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <Card className="p-6">
-          <div className="text-center">
-            <h2 className="text-xl font-bold text-red-600 mb-4">Projeto não encontrado</h2>
-            <Button onClick={() => navigate('/projects')}>Voltar para Projetos</Button>
-          </div>
-        </Card>
+      <div className="container mx-auto px-4 py-8 flex justify-center items-center">
+        <p>Carregando dados do projeto...</p>
       </div>
     );
   }
@@ -111,7 +161,7 @@ const EditProjectPage = () => {
               <Input 
                 id="endYear" 
                 name="endYear" 
-                value={project.endYear} 
+                value={project.endYear || ''} 
                 onChange={handleChange} 
                 className="mt-1"
                 placeholder="Em andamento..."
@@ -156,8 +206,13 @@ const EditProjectPage = () => {
           </div>
 
           <div className="flex justify-end">
-            <Button onClick={handleSave} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
-              <Save size={18} /> Salvar alterações
+            <Button 
+              onClick={handleSave} 
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+              disabled={saving}
+            >
+              <Save size={18} /> 
+              {saving ? 'Salvando...' : 'Salvar alterações'}
             </Button>
           </div>
         </div>

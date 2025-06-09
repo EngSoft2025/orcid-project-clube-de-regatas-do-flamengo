@@ -15,13 +15,17 @@ import Navigation from "./components/Navigation";
 import ResearcherProfilePage from "./pages/ResearcherProfilePage";
 import EditPublicationPage from "./pages/EditPublicationPage";
 import EditProjectPage from "./pages/EditProjectPage";
+import PublicationDetailPage from "./pages/PublicationDetailPage";
+import ProjectDetailPage from "./pages/ProjectDetailPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import OAuthCallback from "./pages/OAuthCallback";
 import NewPublicationPage from "./pages/NewPublicationPage";
 import NewProjectPage from "./pages/NewProjectPage";
 import { mockResearcherData, mockResearchers } from "./data/mockData";
-import { Researcher } from "./types";
+import { Researcher, Publication, Project } from "./types";
+import OtherProjectDetailPage from './components/OtherProjectDetailPage';
+import OtherPublicationDetailPage from './components/OtherPublicationDetailPage';
 
 const queryClient = new QueryClient();
 
@@ -158,6 +162,130 @@ const App = () => {
     }
   }, [auth, allResearchers]);
 
+  // Função para atualizar uma publicação específica
+  const handleUpdatePublication = useCallback((updatedPublication: Publication) => {
+    setCurrentResearcher(prev => {
+      const updatedPublications = prev.publications.map(pub => 
+        pub.id === updatedPublication.id ? updatedPublication : pub
+      );
+      return { ...prev, publications: updatedPublications };
+    });
+
+    // Se o usuário está autenticado, também atualizar o estado de auth
+    if (auth.isAuthenticated && auth.researcher) {
+      const updatedPublications = auth.researcher.publications.map(pub => 
+        pub.id === updatedPublication.id ? updatedPublication : pub
+      );
+      const updatedResearcher = { ...auth.researcher, publications: updatedPublications };
+      
+      setAuth(prev => ({ ...prev, researcher: updatedResearcher }));
+      
+      // Persistir no localStorage
+      try {
+        const authData = {
+          isAuthenticated: true,
+          token: auth.token,
+          researcher: updatedResearcher,
+          expiresAt: Date.now() + (20 * 365 * 24 * 60 * 60 * 1000),
+        };
+        localStorage.setItem('orcid_auth', JSON.stringify(authData));
+      } catch (error) {
+        console.error('Error saving updated auth state:', error);
+      }
+    }
+  }, [auth]);
+
+  // Função para atualizar um projeto específico
+  const handleUpdateProject = useCallback((updatedProject: Project) => {
+    setCurrentResearcher(prev => {
+      const updatedProjects = prev.projects.map(proj => 
+        proj.id === updatedProject.id ? updatedProject : proj
+      );
+      return { ...prev, projects: updatedProjects };
+    });
+
+    // Se o usuário está autenticado, também atualizar o estado de auth
+    if (auth.isAuthenticated && auth.researcher) {
+      const updatedProjects = auth.researcher.projects.map(proj => 
+        proj.id === updatedProject.id ? updatedProject : proj
+      );
+      const updatedResearcher = { ...auth.researcher, projects: updatedProjects };
+      
+      setAuth(prev => ({ ...prev, researcher: updatedResearcher }));
+      
+      // Persistir no localStorage
+      try {
+        const authData = {
+          isAuthenticated: true,
+          token: auth.token,
+          researcher: updatedResearcher,
+          expiresAt: Date.now() + (20 * 365 * 24 * 60 * 60 * 1000),
+        };
+        localStorage.setItem('orcid_auth', JSON.stringify(authData));
+      } catch (error) {
+        console.error('Error saving updated auth state:', error);
+      }
+    }
+  }, [auth]);
+
+  // Função para excluir uma publicação
+  const handleDeletePublication = useCallback((publicationId: string) => {
+    setCurrentResearcher(prev => {
+      const updatedPublications = prev.publications.filter(pub => pub.id !== publicationId);
+      return { ...prev, publications: updatedPublications };
+    });
+
+    // Se o usuário está autenticado, também atualizar o estado de auth
+    if (auth.isAuthenticated && auth.researcher) {
+      const updatedPublications = auth.researcher.publications.filter(pub => pub.id !== publicationId);
+      const updatedResearcher = { ...auth.researcher, publications: updatedPublications };
+      
+      setAuth(prev => ({ ...prev, researcher: updatedResearcher }));
+      
+      // Persistir no localStorage
+      try {
+        const authData = {
+          isAuthenticated: true,
+          token: auth.token,
+          researcher: updatedResearcher,
+          expiresAt: Date.now() + (20 * 365 * 24 * 60 * 60 * 1000),
+        };
+        localStorage.setItem('orcid_auth', JSON.stringify(authData));
+      } catch (error) {
+        console.error('Error saving updated auth state:', error);
+      }
+    }
+  }, [auth]);
+
+  // Função para excluir um projeto
+  const handleDeleteProject = useCallback((projectId: string) => {
+    setCurrentResearcher(prev => {
+      const updatedProjects = prev.projects.filter(proj => proj.id !== projectId);
+      return { ...prev, projects: updatedProjects };
+    });
+
+    // Se o usuário está autenticado, também atualizar o estado de auth
+    if (auth.isAuthenticated && auth.researcher) {
+      const updatedProjects = auth.researcher.projects.filter(proj => proj.id !== projectId);
+      const updatedResearcher = { ...auth.researcher, projects: updatedProjects };
+      
+      setAuth(prev => ({ ...prev, researcher: updatedResearcher }));
+      
+      // Persistir no localStorage
+      try {
+        const authData = {
+          isAuthenticated: true,
+          token: auth.token,
+          researcher: updatedResearcher,
+          expiresAt: Date.now() + (20 * 365 * 24 * 60 * 60 * 1000),
+        };
+        localStorage.setItem('orcid_auth', JSON.stringify(authData));
+      } catch (error) {
+        console.error('Error saving updated auth state:', error);
+      }
+    }
+  }, [auth]);
+
   // useEffect para carregar dados do pesquisador atual via API do ORCID
   useEffect(() => {
     const fetchCurrentResearcherData = async () => {
@@ -184,42 +312,7 @@ const App = () => {
     fetchCurrentResearcherData();
   }, [auth]);
 
-  // useEffect para carregar lista de pesquisadores via busca na API do ORCID
-  useEffect(() => {
-    const fetchAllResearchers = async () => {
-      try {
-        /* TODO: Implementar busca de pesquisadores na API do ORCID
-         * 1. Usar endpoint de busca: https://pub.orcid.org/v3.0/search/?q=*
-         * 2. Ou buscar por instituição específica: ?q=affiliation-org-name:"University Name"
-         * 3. Para cada resultado, fazer fetch do perfil completo
-         * 4. Cachear resultados para melhor performance
-         * 
-         * Exemplo:
-         * const searchQuery = 'affiliation-org-name:"USP" OR affiliation-org-name:"UNICAMP"';
-         * const response = await fetch(`https://pub.orcid.org/v3.0/search/?q=${encodeURIComponent(searchQuery)}`);
-         * const searchResults = await response.json();
-         * 
-         * const researchers = await Promise.all(
-         *   searchResults.result.map(async (result) => {
-         *     const profileResponse = await fetch(`https://pub.orcid.org/v3.0/${result['orcid-identifier'].path}/record`);
-         *     return mapOrcidToResearcher(await profileResponse.json());
-         *   })
-         * );
-         * setAllResearchers(researchers);
-         */
-        
-        // Por enquanto, usando dados mockados
-        console.log('Carregando lista de pesquisadores...');
-        setAllResearchers(mockResearchers);
-      } catch (error) {
-        console.error('Erro ao carregar lista de pesquisadores:', error);
-      }
-    };
-
-    fetchAllResearchers();
-  }, []);
-
-  // Função para buscar dados de um pesquisador específico
+  // Função para buscar dados de um pesquisador específico (para ResearcherProfilePage)
   const getResearcherById = useCallback((id: string): Researcher | null => {
     if (id === 'current') {
       return currentResearcher;
@@ -227,7 +320,7 @@ const App = () => {
     return allResearchers.find(r => r.orcidId === id) || null;
   }, [currentResearcher, allResearchers]);
 
-  // Função para simular carregamento de dados com busca na API do ORCID
+  // Função para simular carregamento de dados com busca na API do ORCID (para ResearcherProfilePage)
   const loadResearcherData = useCallback((id: string, callback: (researcher: Researcher | null) => void) => {
     setLoading(true);
     
@@ -327,12 +420,7 @@ const App = () => {
               />
               <Route 
                 path="/search" 
-                element={
-                  <Search 
-                    researchers={allResearchers}
-                    loading={loading}
-                  />
-                } 
+                element={<Search />} 
               />
               <Route 
                 path="/publications" 
@@ -340,6 +428,7 @@ const App = () => {
                   <Publications 
                     publications={currentResearcher.publications}
                     loading={loading}
+                    onDeletePublication={handleDeletePublication}
                   />
                 } 
               />
@@ -350,8 +439,9 @@ const App = () => {
                     projects={currentResearcher.projects}
                     publications={currentResearcher.publications}
                     loading={loading}
+                    onDeleteProject={handleDeleteProject}
                   />
-                } 
+                }
               />
               <Route 
                 path="/edit-profile" 
@@ -368,32 +458,40 @@ const App = () => {
               />
               <Route 
                 path="/new-publication" 
-                element={
-                  <NewPublicationPage 
-                  />
-                } 
+                element={<NewPublicationPage />} 
               />
               <Route 
                 path="/new-project" 
-                element={
-                  <NewProjectPage
-                  />
-                } 
+                element={<NewProjectPage />} 
               />
               <Route 
                 path="/researcher/:id" 
                 element={
                   <ResearcherProfilePage 
-                  getResearcherById={getResearcherById}
-                  loadResearcherData={loadResearcherData}
-                  loading={loading}
+                    getResearcherById={getResearcherById}
+                    loadResearcherData={loadResearcherData}
+                    loading={loading}
                   />
                 } 
+              />
+              {/* Páginas de detalhes das publicações e projetos */}
+              <Route 
+                path="/publication/:publicationId" 
+                element={<PublicationDetailPage />} 
+              />
+              <Route 
+                path="/project/:projectId" 
+                element={<ProjectDetailPage />} 
               />
               <Route 
                 path="/edit-publication/:id" 
                 element={
                   <EditPublicationPage 
+                    publications={currentResearcher.publications}
+                    projects={currentResearcher.projects}
+                    onUpdatePublication={handleUpdatePublication}
+                    isAuthenticated={auth.isAuthenticated}
+                    token={auth.token}
                   />
                 } 
               />
@@ -401,25 +499,31 @@ const App = () => {
                 path="/edit-project/:id" 
                 element={
                   <EditProjectPage 
+                    projects={currentResearcher.projects}
+                    onUpdateProject={handleUpdateProject}
+                    isAuthenticated={auth.isAuthenticated}
+                    token={auth.token}
                   />
                 } 
+              />
+              <Route 
+                path="/other-project/:projectId" 
+                element={<OtherProjectDetailPage />} 
+              />
+              <Route 
+                path="/other-publication/:publicationId" 
+                element={<OtherPublicationDetailPage />} 
               />
               <Route 
                 path="/login" 
-                element={
-                  <Login 
-                  />
-                } 
+                element={<Login />} 
               />
               <Route 
                 path="/register" 
-                element={
-                  <Register 
-                  />
-                } 
+                element={<Register />} 
               />
               <Route 
-                path="/oauth/callback" 
+                path="/login/callback" 
                 element={
                   <OAuthCallback 
                     onLogin={handleLogin}

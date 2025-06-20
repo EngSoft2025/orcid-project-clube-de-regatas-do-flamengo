@@ -4,7 +4,10 @@
   "description": "Proxy server for ORCID API to handle CORS issues",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -16,12 +19,16 @@
   "engines": {
     "node": "16.x"
   },
-  "keywords": [
-    "orcid",
-    "proxy",
-    "api",
-    "cors"
-  ],
+  "keywords": ["orcid", "proxy", "api", "cors"],
   "author": "Your Name",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "jest": "^30.0.2",
+    "supertest": "^7.1.1"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverageFrom": ["*.js", "!node_modules/**"],
+    "testMatch": ["**/*.test.js"]
+  }
 }

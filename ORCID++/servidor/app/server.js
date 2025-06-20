@@ -9,12 +9,12 @@ const PORT = process.env.PORT || 3000
 
 // Configuração do banco de dados
 const client = new Client({
-  host: "localhost",
-  port: 5432,
-  user: "postgres",
-  password: "senha",
-  database: "meubanco",
-})
+  host: process.env.DB_HOST,
+  port: parseInt(process.env.DB_PORT),
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+});
 
 // Conectar ao banco de dados
 async function connectDB() {

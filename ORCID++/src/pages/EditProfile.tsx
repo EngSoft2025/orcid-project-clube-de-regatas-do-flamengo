@@ -1,188 +1,217 @@
-import React, { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Save, Plus, Trash2 } from 'lucide-react';
-import { Researcher } from '../types';
-import { toast } from '@/hooks/use-toast';
+"use client"
+
+import type React from "react"
+import { useState, useEffect } from "react"
+import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { Save, Plus, Trash2 } from "lucide-react"
+import type { Researcher } from "../types"
+import { toast } from "@/hooks/use-toast"
 
 interface EditProfileProps {
-  researcher: Researcher;
-  loading: boolean;
-  onUpdateResearcher: (updatedResearcher: Researcher) => void;
-  onRefreshData?: () => Promise<void>;
-  isAuthenticated: boolean;
-  token?: string | null;
+  researcher: Researcher
+  loading: boolean
+  onUpdateResearcher: (updatedResearcher: Researcher) => void
+  onRefreshData?: () => Promise<void>
+  isAuthenticated: boolean
+  token?: string | null
 }
 
-const EditProfile: React.FC<EditProfileProps> = ({ 
-  researcher: initialResearcher, 
+const EditProfile: React.FC<EditProfileProps> = ({
+  researcher: initialResearcher,
   loading: globalLoading,
   onUpdateResearcher,
   onRefreshData,
   isAuthenticated,
-  token
+  token,
 }) => {
-  const [researcher, setResearcher] = useState<Researcher>(initialResearcher);
-  const [saving, setSaving] = useState(false);
-  const [newArea, setNewArea] = useState('');
-  const [newLink, setNewLink] = useState({ name: '', url: '' });
+  const [researcher, setResearcher] = useState<Researcher>(initialResearcher)
+  const [saving, setSaving] = useState(false)
+  const [newArea, setNewArea] = useState("")
+  const [newLink, setNewLink] = useState({ name: "", url: "" })
 
   // Atualizar estado local quando o pesquisador global mudar
   useEffect(() => {
-    setResearcher(initialResearcher);
-  }, [initialResearcher]);
+    setResearcher(initialResearcher)
+  }, [initialResearcher])
 
   const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    
+    e.preventDefault()
+    setSaving(true)
+
     try {
-      if (isAuthenticated && token && researcher.orcidId) {
-        /* TODO: Implementar salvamento via API do ORCID
-         * 1. Mapear dados da interface Researcher para formato ORCID
-         * 2. Fazer PUT request para: https://api.orcid.org/v3.0/{orcid-id}/record
-         * 3. Headers: Authorization: Bearer {access-token}, Content-Type: application/json
-         * 4. Diferentes endpoints para diferentes seções:
-         *    - /person para dados pessoais
-         *    - /biography para biografia
-         *    - /researcher-urls para links externos
-         *    - /keywords para áreas de pesquisa
-         * 
-         * Exemplo:
-         * const updates = mapResearcherToOrcidFormat(researcher);
-         * 
-         * // Atualizar biografia
-         * await fetch(`https://api.orcid.org/v3.0/${researcher.orcidId}/biography`, {
-         *   method: 'PUT',
-         *   headers: {
-         *     'Authorization': `Bearer ${token}`,
-         *     'Content-Type': 'application/json'
-         *   },
-         *   body: JSON.stringify(updates.biography)
-         * });
-         * 
-         * // Atualizar URLs do pesquisador
-         * await fetch(`https://api.orcid.org/v3.0/${researcher.orcidId}/researcher-urls`, {
-         *   method: 'PUT',
-         *   headers: {
-         *     'Authorization': `Bearer ${token}`,
-         *     'Content-Type': 'application/json'
-         *   },
-         *   body: JSON.stringify(updates.researcherUrls)
-         * });
-         * 
-         * // Atualizar palavras-chave (áreas de pesquisa)
-         * await fetch(`https://api.orcid.org/v3.0/${researcher.orcidId}/keywords`, {
-         *   method: 'PUT',
-         *   headers: {
-         *     'Authorization': `Bearer ${token}`,
-         *     'Content-Type': 'application/json'
-         *   },
-         *   body: JSON.stringify(updates.keywords)
-         * });
-         */
-        
-        console.log('Salvando alterações via API do ORCID...', researcher);
-        
-        // Simulação de salvamento na API
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Atualizar o estado global do App
-        onUpdateResearcher(researcher);
-        
-        // Opcionalmente, recarregar dados da API para garantir sincronização
-        if (onRefreshData) {
-          await onRefreshData();
-        }
-        
+      if (!researcher.orcidId) {
         toast({
-          title: "Perfil salvo",
-          description: "As alterações foram salvas com sucesso no ORCID.",
-        });
-      } else {
-        // Usuário não autenticado - apenas atualizar estado local (demo)
-        console.log('Salvando alterações localmente (demo)...', researcher);
-        
-        // Simulação de salvamento
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Atualizar o estado global do App
-        onUpdateResearcher(researcher);
-        
-        toast({
-          title: "Perfil salvo",
-          description: "As alterações foram salvas localmente (modo demonstração).",
-        });
+          title: "Erro",
+          description: "ORCID ID é obrigatório para salvar o perfil.",
+          variant: "destructive",
+        })
+        return
       }
+
+      // Preparar dados para envio
+      const profileData = {
+        name: researcher.name,
+        institution: researcher.institution,
+        department: researcher.department,
+        role: researcher.role,
+        email: researcher.email,
+        bio: researcher.bio,
+        institutionalPage: researcher.institutionalPage,
+        researchAreas: researcher.researchAreas,
+        externalLinks: researcher.externalLinks,
+      }
+
+      console.log("Salvando perfil via API...", profileData)
+
+      // Fazer requisição para o endpoint
+      const response = await fetch(`http://localhost:3000/api/profile/${researcher.orcidId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify(profileData),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erro ao salvar perfil")
+      }
+
+      // Converter dados do banco para formato Researcher se necessário
+      if (result.data) {
+        const updatedResearcher = mapOrcidDataToResearcher(result.data)
+        onUpdateResearcher(updatedResearcher)
+      } else {
+        onUpdateResearcher(researcher)
+      }
+
+      // Opcionalmente, recarregar dados da API para garantir sincronização
+      if (onRefreshData) {
+        await onRefreshData()
+      }
+
+      toast({
+        title: "Perfil salvo",
+        description: isAuthenticated
+          ? "As alterações foram salvas com sucesso no banco de dados."
+          : "As alterações foram salvas com sucesso.",
+      })
     } catch (error) {
-      console.error('Erro ao salvar perfil:', error);
+      console.error("Erro ao salvar perfil:", error)
       toast({
         title: "Erro",
-        description: "Não foi possível salvar as alterações. Tente novamente.",
-        variant: "destructive"
-      });
+        description: error instanceof Error ? error.message : "Não foi possível salvar as alterações. Tente novamente.",
+        variant: "destructive",
+      })
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
-  };
+  }
+
+  // Função auxiliar para converter dados do ORCID para formato Researcher
+  const mapOrcidDataToResearcher = (orcidData: any): Researcher => {
+    const person = orcidData.person || {}
+    const name = person.name || {}
+    const givenNames = name["given-names"]?.value || ""
+    const familyName = name["family-name"]?.value || ""
+    const fullName = `${givenNames} ${familyName}`.trim()
+
+    const employments = orcidData["activities-summary"]?.employments?.["affiliation-group"]?.[0]?.summaries?.[0]
+    const institution = employments?.organization?.name || ""
+    const department = employments?.["department-name"] || ""
+    const role = employments?.["role-title"] || ""
+
+    const email = person.emails?.email?.[0]?.email || ""
+    const bio = person.biography?.content || ""
+
+    const keywords = person.keywords?.keyword || []
+    const researchAreas = keywords.map((k: any) => k.content).filter(Boolean)
+
+    const researcherUrls = person["researcher-urls"]?.["researcher-url"] || []
+    const externalLinks = researcherUrls.map((url: any) => ({
+      name: url["url-name"] || "Link",
+      url: url.url.value,
+    }))
+
+    return {
+      name: fullName || "Nome não informado",
+      orcidId: orcidData["orcid-identifier"]?.path || "",
+      institution: institution || "Instituição não informada",
+      department: department,
+      role: role,
+      email: email,
+      bio: bio,
+      institutionalPage: "", // Não disponível diretamente no ORCID
+      researchAreas: researchAreas,
+      externalLinks: externalLinks,
+      publications: [], // Será preenchido separadamente
+      projects: [], // Será preenchido separadamente
+    }
+  }
 
   const handleBasicInfoChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
+    const { name, value } = e.target
     setResearcher((prev) => ({
       ...prev,
-      [name]: value
-    }));
-  };
+      [name]: value,
+    }))
+  }
 
   const addResearchArea = () => {
-    if (!newArea.trim()) return;
+    if (!newArea.trim()) return
     setResearcher((prev) => ({
       ...prev,
-      researchAreas: [...prev.researchAreas, newArea.trim()]
-    }));
-    setNewArea('');
-  };
+      researchAreas: [...prev.researchAreas, newArea.trim()],
+    }))
+    setNewArea("")
+  }
 
   const removeResearchArea = (index: number) => {
     setResearcher((prev) => ({
       ...prev,
-      researchAreas: prev.researchAreas.filter((_, i) => i !== index)
-    }));
-  };
+      researchAreas: prev.researchAreas.filter((_, i) => i !== index),
+    }))
+  }
 
   const addExternalLink = () => {
-    if (!newLink.name.trim() || !newLink.url.trim()) return;
-    
+    if (!newLink.name.trim() || !newLink.url.trim()) return
+
     // Validar URL básica
     try {
-      new URL(newLink.url);
+      new URL(newLink.url)
     } catch {
       toast({
         title: "URL inválida",
         description: "Por favor, insira uma URL válida (ex: https://exemplo.com)",
-        variant: "destructive"
-      });
-      return;
+        variant: "destructive",
+      })
+      return
     }
-    
+
     setResearcher((prev) => ({
       ...prev,
-      externalLinks: [...prev.externalLinks, { 
-        name: newLink.name.trim(), 
-        url: newLink.url.trim() 
-      }]
-    }));
-    setNewLink({ name: '', url: '' });
-  };
+      externalLinks: [
+        ...prev.externalLinks,
+        {
+          name: newLink.name.trim(),
+          url: newLink.url.trim(),
+        },
+      ],
+    }))
+    setNewLink({ name: "", url: "" })
+  }
 
   const removeExternalLink = (index: number) => {
     setResearcher((prev) => ({
       ...prev,
-      externalLinks: prev.externalLinks.filter((_, i) => i !== index)
-    }));
-  };
+      externalLinks: prev.externalLinks.filter((_, i) => i !== index),
+    }))
+  }
 
   if (globalLoading) {
     return (
@@ -192,7 +221,7 @@ const EditProfile: React.FC<EditProfileProps> = ({
           <p className="text-lg text-gray-600">Carregando dados do perfil...</p>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -201,17 +230,15 @@ const EditProfile: React.FC<EditProfileProps> = ({
         <h1 className="text-2xl font-bold text-blue-800">Editar Perfil</h1>
         {!isAuthenticated && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
-            <p className="text-sm text-yellow-800">
-              Modo demonstração - faça login para salvar no ORCID
-            </p>
+            <p className="text-sm text-yellow-800">Modo demonstração - dados serão salvos localmente</p>
           </div>
         )}
       </div>
-      
+
       <form onSubmit={handleSave}>
         <Card className="p-6 mb-6 bg-white border-blue-100">
           <h2 className="text-xl font-semibold text-blue-700 mb-4">Informações Básicas</h2>
-          
+
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Nome Completo</label>
@@ -223,7 +250,7 @@ const EditProfile: React.FC<EditProfileProps> = ({
                 required
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">ORCID ID</label>
               <Input
@@ -234,9 +261,10 @@ const EditProfile: React.FC<EditProfileProps> = ({
                 placeholder="0000-0000-0000-0000"
                 pattern="[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X]"
                 title="Formato: 0000-0000-0000-0000"
+                required
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Instituição</label>
               <Input
@@ -247,38 +275,38 @@ const EditProfile: React.FC<EditProfileProps> = ({
                 required
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Departamento</label>
               <Input
                 name="department"
-                value={researcher.department || ''}
+                value={researcher.department || ""}
                 onChange={handleBasicInfoChange}
                 className="w-full border-blue-200"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Cargo / Função</label>
               <Input
                 name="role"
-                value={researcher.role || ''}
+                value={researcher.role || ""}
                 onChange={handleBasicInfoChange}
                 className="w-full border-blue-200"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
               <Input
                 name="email"
                 type="email"
-                value={researcher.email || ''}
+                value={researcher.email || ""}
                 onChange={handleBasicInfoChange}
                 className="w-full border-blue-200"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Biografia</label>
               <Textarea
@@ -289,23 +317,21 @@ const EditProfile: React.FC<EditProfileProps> = ({
                 rows={4}
                 maxLength={5000}
               />
-              <p className="text-xs text-gray-500 mt-1">
-                {researcher.bio.length}/5000 caracteres
-              </p>
+              <p className="text-xs text-gray-500 mt-1">{researcher.bio.length}/5000 caracteres</p>
             </div>
           </div>
         </Card>
-        
+
         <Card className="p-6 mb-6 bg-white border-blue-100">
           <h2 className="text-xl font-semibold text-blue-700 mb-4">Áreas de Pesquisa</h2>
-          
+
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2">
               {researcher.researchAreas.map((area, index) => (
                 <div key={index} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full flex items-center">
                   <span>{area}</span>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => removeResearchArea(index)}
                     className="ml-2 text-blue-600 hover:text-blue-800 transition-colors"
                     title="Remover área de pesquisa"
@@ -318,7 +344,7 @@ const EditProfile: React.FC<EditProfileProps> = ({
                 <p className="text-gray-500 text-sm">Nenhuma área de pesquisa adicionada</p>
               )}
             </div>
-            
+
             <div className="flex gap-2">
               <Input
                 value={newArea}
@@ -326,14 +352,14 @@ const EditProfile: React.FC<EditProfileProps> = ({
                 placeholder="Adicionar área de pesquisa"
                 className="border-blue-200"
                 onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addResearchArea();
+                  if (e.key === "Enter") {
+                    e.preventDefault()
+                    addResearchArea()
                   }
                 }}
               />
-              <Button 
-                type="button" 
+              <Button
+                type="button"
                 onClick={addResearchArea}
                 className="bg-blue-600 hover:bg-blue-700"
                 disabled={!newArea.trim()}
@@ -343,10 +369,10 @@ const EditProfile: React.FC<EditProfileProps> = ({
             </div>
           </div>
         </Card>
-        
+
         <Card className="p-6 mb-6 bg-white border-blue-100">
           <h2 className="text-xl font-semibold text-blue-700 mb-4">Links Externos</h2>
-          
+
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Página Institucional</label>
@@ -359,7 +385,7 @@ const EditProfile: React.FC<EditProfileProps> = ({
                 placeholder="https://www.instituicao.edu.br/perfil"
               />
             </div>
-            
+
             <div className="space-y-2">
               {researcher.externalLinks.map((link, index) => (
                 <div key={index} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
@@ -367,8 +393,8 @@ const EditProfile: React.FC<EditProfileProps> = ({
                     <p className="font-medium text-sm text-gray-700">{link.name}</p>
                     <p className="text-xs text-gray-500 break-all">{link.url}</p>
                   </div>
-                  <Button 
-                    type="button" 
+                  <Button
+                    type="button"
                     variant="destructive"
                     onClick={() => removeExternalLink(index)}
                     size="icon"
@@ -383,7 +409,7 @@ const EditProfile: React.FC<EditProfileProps> = ({
                 <p className="text-gray-500 text-sm">Nenhum link externo adicionado</p>
               )}
             </div>
-            
+
             <div className="flex flex-col sm:flex-row gap-2">
               <Input
                 value={newLink.name}
@@ -398,8 +424,8 @@ const EditProfile: React.FC<EditProfileProps> = ({
                 className="border-blue-200"
                 type="url"
               />
-              <Button 
-                type="button" 
+              <Button
+                type="button"
                 onClick={addExternalLink}
                 className="bg-blue-600 hover:bg-blue-700"
                 disabled={!newLink.name.trim() || !newLink.url.trim()}
@@ -409,20 +435,16 @@ const EditProfile: React.FC<EditProfileProps> = ({
             </div>
           </div>
         </Card>
-        
+
         <div className="flex justify-end">
-          <Button 
-            type="submit" 
-            className="bg-blue-600 hover:bg-blue-700"
-            disabled={saving}
-          >
+          <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={saving}>
             <Save className="mr-2 h-4 w-4" />
-            {saving ? 'Salvando...' : 'Salvar Alterações'}
+            {saving ? "Salvando..." : "Salvar Alterações"}
           </Button>
         </div>
       </form>
     </div>
-  );
-};
+  )
+}
 
-export default EditProfile;
+export default EditProfile

@@ -56,6 +56,7 @@ const Navigation: React.FC<NavigationProps> = ({
     if (onLogout) {
       onLogout();
     }
+    navigate("/")
   };
 
   return (

@@ -1,3 +1,13 @@
+-- DROP das tabelas com base nas dependências
+DROP TABLE IF EXISTS public.TrabalhosEProjetos CASCADE;
+DROP TABLE IF EXISTS public.UsuariosETrabalhos CASCADE;
+DROP TABLE IF EXISTS public.Trabalhos CASCADE;
+DROP TABLE IF EXISTS public.UsuariosEProjetos CASCADE;
+DROP TABLE IF EXISTS public.Projetos CASCADE;
+DROP TABLE IF EXISTS public.AreasDePesquisaEUsuarios CASCADE;
+DROP TABLE IF EXISTS public.AreasDePesquisa CASCADE;
+DROP TABLE IF EXISTS public.Usuarios CASCADE;
+
 CREATE TABLE public.Usuarios
 (
 	id SERIAL PRIMARY KEY,

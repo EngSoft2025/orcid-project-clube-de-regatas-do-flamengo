@@ -12,7 +12,7 @@ const client = new Client({
   host: "localhost",
   port: 5432,
   user: "postgres",
-  password: "senha",
+  password: "pgadmin",
   database: "meubanco",
 })
 
@@ -262,7 +262,6 @@ async function buscarTrabalhoComAutores(trabalhoId) {
 }
 
 // 🆕 FUNÇÃO CORRIGIDA: Extrair autores de dados do ORCID
-// 🔧 CORREÇÃO 3: Extrair autores corretamente do ORCID
 function extrairAutoresDoOrcid(dadosOrcid) {
   const autores = []
 
@@ -279,8 +278,7 @@ function extrairAutoresDoOrcid(dadosOrcid) {
     })
   }
 
-  // 🔧 CORREÇÃO: Se não tem contributors, NÃO criar autor genérico
-  // Deixar vazio para ser preenchido manualmente
+  // Se não tem contributors, NÃO criar autor genérico
   if (autores.length === 0) {
     console.log("⚠️ Nenhum autor encontrado nos dados do ORCID - será necessário adicionar manualmente")
   }
@@ -353,7 +351,6 @@ async function salvarAreaPesquisa(area) {
 }
 
 // 🆕 FUNÇÃO CORRIGIDA: Salvar usuário no banco com verificação de existência
-// 🔧 CORREÇÃO 4: Não salvar automaticamente o usuário como autor de todos os trabalhos
 async function salvarUsuarioNoBanco(dadosOrcid) {
   try {
     const orcidId = dadosOrcid["orcid-identifier"].path
@@ -426,7 +423,7 @@ async function salvarUsuarioNoBanco(dadosOrcid) {
       }
     }
 
-    // 🔧 CORREÇÃO: Salvar trabalhos SEM autores automáticos
+    // Salvar trabalhos SEM autores automáticos
     const works = dadosOrcid["activities-summary"]?.works?.group || []
     for (const workGroup of works) {
       const workSummary = workGroup["work-summary"]?.[0]
@@ -446,9 +443,6 @@ async function salvarUsuarioNoBanco(dadosOrcid) {
         ])
 
         const trabalhoId = workResult.rows[0].id
-
-        // 🔧 CORREÇÃO: NÃO adicionar automaticamente o usuário como autor
-        // Os autores serão extraídos dos dados detalhados do trabalho ou adicionados manualmente
         console.log(`✅ Trabalho ${trabalhoId} salvo SEM autores automáticos - aguardando dados detalhados`)
       }
     }
@@ -571,7 +565,7 @@ async function salvarProjetoDetalhado(usuarioId, dadosProjeto, putCode) {
   }
 }
 
-// 🆕 FUNÇÃO CORRIGIDA: Buscar usuário com trabalhos e autores usando nova estrutura
+// 🆕 FUNÇÃO CORRIGIDA: Buscar usuário com trabalhos e autores usando nova estrutura E COM ASSOCIAÇÕES PROJETO-PUBLICAÇÃO
 async function buscarUsuarioNoBanco(orcidId) {
   try {
     console.log(`🔍 Buscando usuário com ORCID: ${orcidId}`)
@@ -588,7 +582,6 @@ async function buscarUsuarioNoBanco(orcidId) {
     `
 
     const resultUsuario = await client.query(queryUsuario, [orcidId])
-    console.log(`📊 Resultado da busca:`, resultUsuario.rows)
 
     if (resultUsuario.rows.length === 0) {
       console.log(`❌ Usuário não encontrado no banco: ${orcidId}`)
@@ -601,7 +594,7 @@ async function buscarUsuarioNoBanco(orcidId) {
     // Buscar links externos usando nova estrutura
     const linksExternos = await buscarLinksExternos(usuario.id)
 
-    // Buscar trabalhos com autores usando nova estrutura
+    // 🔧 CORREÇÃO: Buscar trabalhos com autores E projetos associados
     const queryTrabalhos = `
       SELECT 
         t.*,
@@ -615,7 +608,15 @@ async function buscarUsuarioNoBanco(orcidId) {
             'ordem', a.ordem_autor,
             'isRegisteredUser', CASE WHEN a.usuario_id IS NOT NULL THEN true ELSE false END
           ) ORDER BY a.ordem_autor
-        ) FILTER (WHERE a.id IS NOT NULL) as todos_autores
+        ) FILTER (WHERE a.id IS NOT NULL) as todos_autores,
+        -- 🆕 BUSCAR PROJETOS ASSOCIADOS
+        (
+          SELECT p.nome 
+          FROM TrabalhosEProjetos tp 
+          JOIN Projetos p ON tp.projeto_id = p.id 
+          WHERE tp.trabalho_id = t.id 
+          LIMIT 1
+        ) as projeto_associado
       FROM Trabalhos t
       LEFT JOIN AutoresDeTrabalhos a ON t.id = a.trabalho_id
       WHERE t.usuario_proprietario_id = $1
@@ -625,12 +626,25 @@ async function buscarUsuarioNoBanco(orcidId) {
 
     const resultTrabalhos = await client.query(queryTrabalhos, [usuario.id])
 
-    // Buscar projetos do usuário
+    // 🔧 CORREÇÃO: Buscar projetos com publicações associadas
     const queryProjetos = `
-      SELECT p.* 
+      SELECT 
+        p.*,
+        -- 🆕 BUSCAR PUBLICAÇÕES ASSOCIADAS
+        json_agg(
+          json_build_object(
+            'id', t.id,
+            'title', t.nome,
+            'year', t.ano,
+            'type', t.tipo_de_trabalho
+          )
+        ) FILTER (WHERE t.id IS NOT NULL) as publicacoes_associadas
       FROM Projetos p
       JOIN UsuariosEProjetos up ON p.id = up.projeto_id
+      LEFT JOIN TrabalhosEProjetos tp ON p.id = tp.projeto_id
+      LEFT JOIN Trabalhos t ON tp.trabalho_id = t.id
       WHERE up.usuario_id = $1
+      GROUP BY p.id
       ORDER BY p.ano_inicio DESC
     `
 
@@ -691,6 +705,8 @@ async function buscarUsuarioNoBanco(orcidId) {
                 "publication-date": { year: { value: trabalho.ano.toString() } },
                 type: trabalho.tipo_de_trabalho,
                 "journal-title": { value: trabalho.fonte || "" },
+                // 🆕 INCLUIR PROJETO ASSOCIADO
+                project: trabalho.projeto_associado || "",
                 contributors: {
                   contributor: (trabalho.todos_autores || [])
                     .filter((a) => a.name)
@@ -723,6 +739,8 @@ async function buscarUsuarioNoBanco(orcidId) {
                 type: "grant",
                 organization: { name: projeto.agencia_de_financiamento || "N/A" },
                 amount: projeto.financiamento ? { value: projeto.financiamento } : null,
+                // 🆕 INCLUIR PUBLICAÇÕES ASSOCIADAS
+                publications: projeto.publicacoes_associadas || [],
               },
             ],
           })),
@@ -807,6 +825,149 @@ async function obterUsuarioIdPorOrcid(orcidId) {
   }
 }
 
+// 🆕 NOVOS ENDPOINTS PARA GERENCIAR ASSOCIAÇÕES PROJETO-PUBLICAÇÃO
+
+// Endpoint para associar publicação a projeto
+app.post("/api/projetoTrabalho/:trabalhoId/:projetoId", async (req, res) => {
+  try {
+    const { trabalhoId, projetoId } = req.params
+
+    console.log(`🔗 Associando publicação ${trabalhoId} ao projeto ${projetoId}`)
+
+    // Verificar se ambos existem
+    const checkPublication = await client.query("SELECT id FROM Trabalhos WHERE id = $1", [trabalhoId])
+    const checkProject = await client.query("SELECT id FROM Projetos WHERE id = $1", [projetoId])
+
+    if (checkPublication.rows.length === 0) {
+      return res.status(404).json({ error: "Publicação não encontrada" })
+    }
+
+    if (checkProject.rows.length === 0) {
+      return res.status(404).json({ error: "Projeto não encontrado" })
+    }
+
+    // Criar associação (ON CONFLICT DO NOTHING evita duplicatas)
+    await client.query(
+      "INSERT INTO TrabalhosEProjetos (trabalho_id, projeto_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+      [trabalhoId, projetoId],
+    )
+
+    console.log(`✅ Publicação ${trabalhoId} associada ao projeto ${projetoId}`)
+
+    res.json({
+      success: true,
+      message: "Publicação associada ao projeto com sucesso",
+    })
+  } catch (error) {
+    console.error("❌ Erro ao associar publicação ao projeto:", error)
+    res.status(500).json({
+      error: "Erro interno do servidor",
+      message: error.message,
+    })
+  }
+})
+
+// Endpoint para remover associação entre publicação e projeto
+app.delete("/api/projetoTrabalho/:trabalhoId/:projetoId", async (req, res) => {
+  try {
+    const { trabalhoId, projetoId } = req.params
+
+    console.log(`🔗 Removendo associação entre publicação ${trabalhoId} e projeto ${projetoId}`)
+
+    const result = await client.query("DELETE FROM TrabalhosEProjetos WHERE trabalho_id = $1 AND projeto_id = $2", [
+      trabalhoId,
+      projetoId,
+    ])
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        error: "Associação não encontrada",
+      })
+    }
+
+    console.log(`✅ Associação removida entre publicação ${trabalhoId} e projeto ${projetoId}`)
+
+    res.json({
+      success: true,
+      message: "Associação removida com sucesso",
+    })
+  } catch (error) {
+    console.error("❌ Erro ao remover associação:", error)
+    res.status(500).json({
+      error: "Erro interno do servidor",
+      message: error.message,
+    })
+  }
+})
+
+// Endpoint para obter projetos associados a uma publicação
+app.get("/api/publication/:publicationId/projects", async (req, res) => {
+  try {
+    const { publicationId } = req.params
+
+    const query = `
+      SELECT p.* 
+      FROM Projetos p
+      JOIN TrabalhosEProjetos tp ON p.id = tp.projeto_id
+      WHERE tp.trabalho_id = $1
+      ORDER BY p.nome
+    `
+
+    const result = await client.query(query, [publicationId])
+
+    res.json({
+      success: true,
+      data: result.rows,
+    })
+  } catch (error) {
+    console.error("❌ Erro ao buscar projetos da publicação:", error)
+    res.status(500).json({
+      error: "Erro interno do servidor",
+      message: error.message,
+    })
+  }
+})
+
+// Endpoint para obter publicações associadas a um projeto
+app.get("/api/project/:projectId/publications", async (req, res) => {
+  try {
+    const { projectId } = req.params
+
+    const query = `
+      SELECT t.*, 
+        json_agg(
+          json_build_object(
+            'id', a.id,
+            'name', a.nome_autor,
+            'orcidId', a.orcid_autor,
+            'email', a.email_autor,
+            'affiliation', a.afiliacao_autor,
+            'ordem', a.ordem_autor
+          ) ORDER BY a.ordem_autor
+        ) FILTER (WHERE a.id IS NOT NULL) as autores
+      FROM Trabalhos t
+      JOIN TrabalhosEProjetos tp ON t.id = tp.trabalho_id
+      LEFT JOIN AutoresDeTrabalhos a ON t.id = a.trabalho_id
+      WHERE tp.projeto_id = $1
+      GROUP BY t.id
+      ORDER BY t.ano DESC
+    `
+
+    const result = await client.query(query, [projectId])
+
+    res.json({
+      success: true,
+      data: result.rows,
+    })
+  } catch (error) {
+    console.error("❌ Erro ao buscar publicações do projeto:", error)
+    res.status(500).json({
+      error: "Erro interno do servidor",
+      message: error.message,
+    })
+  }
+})
+
 // Rotas
 
 app.get("/", (req, res) => {
@@ -827,10 +988,12 @@ app.get("/", (req, res) => {
       "/api/publication/:orcid": "POST - Create new publication",
       "/api/publication/:orcid/:publicationId": "PUT/DELETE - Update/Delete publication",
       "/api/publications/:orcid": "GET - List user publications",
-      "/api/projetoTrabalho/:trabalhoId/:projetoID": "POST - Associate project with publication",
-      "/api/projetoTrabalho/:trabalhoId/:projetoID": "DELETE - Dissociate project from publication",
+      "/api/projetoTrabalho/:trabalhoId/:projetoId": "POST - Associate project with publication",
+      "/api/projetoTrabalho/:trabalhoId/:projetoId": "DELETE - Dissociate project from publication",
+      "/api/publication/:publicationId/projects": "GET - Get projects associated with publication",
+      "/api/project/:projectId/publications": "GET - Get publications associated with project",
     },
-    note: "🆕 Versão corrigida com verificação de usuários existentes e tratamento adequado de erros!",
+    note: "🆕 Versão com suporte completo a associações projeto-publicação!",
   })
 })
 
@@ -1094,7 +1257,7 @@ app.post("/api/project/:orcid", async (req, res) => {
         await client.query("ROLLBACK")
         return res.status(409).json({
           error: "Já existe um projeto com este nome para este usuário",
-          existingProject: existingProject.rows[0]
+          existingProject: existingProject.rows[0],
         })
       }
 
@@ -1118,10 +1281,10 @@ app.post("/api/project/:orcid", async (req, res) => {
       const projetoId = projectResult.rows[0].id
 
       // Associar APENAS o novo projeto ao usuário
-      await client.query(
-        "INSERT INTO UsuariosEProjetos (usuario_id, projeto_id) VALUES ($1, $2)",
-        [usuarioId, projetoId]
-      )
+      await client.query("INSERT INTO UsuariosEProjetos (usuario_id, projeto_id) VALUES ($1, $2)", [
+        usuarioId,
+        projetoId,
+      ])
 
       await client.query("COMMIT")
 
@@ -1135,7 +1298,6 @@ app.post("/api/project/:orcid", async (req, res) => {
         message: "Projeto criado com sucesso",
         data: newProject,
       })
-
     } catch (error) {
       await client.query("ROLLBACK")
       throw error
@@ -1229,7 +1391,7 @@ app.put("/api/project/:orcid/:projectId", async (req, res) => {
         await client.query("ROLLBACK")
         return res.status(409).json({
           error: "Já existe outro projeto com este nome para este usuário",
-          existingProject: duplicateProject.rows[0]
+          existingProject: duplicateProject.rows[0],
         })
       }
 
@@ -1272,7 +1434,6 @@ app.put("/api/project/:orcid/:projectId", async (req, res) => {
         message: "Projeto atualizado com sucesso",
         data: updatedProject,
       })
-
     } catch (error) {
       await client.query("ROLLBACK")
       throw error
@@ -1400,23 +1561,12 @@ app.get("/api/projects/:orcid", async (req, res) => {
 
     const resultProjetos = await client.query(queryProjetos, [usuarioId])
 
-    const projects = resultProjetos.rows.map((projeto) => ({
-      id: projeto.id.toString(),
-      name: projeto.nome,
-      startYear: projeto.ano_inicio,
-      endYear: projeto.ano_termino,
-      fundingAgency: projeto.agencia_de_financiamento,
-      funding: projeto.financiamento,
-      role: projeto.funcao_no_projeto,
-      description: projeto.descricao,
-    }))
-
     res.json({
       success: true,
-      data: projects,
+      data: resultProjetos.rows,
     })
   } catch (error) {
-    console.error("❌ Erro ao buscar projetos:", error)
+    console.error("❌ Erro ao listar projetos:", error)
     res.status(500).json({
       error: "Erro interno do servidor",
       message: error.message,
@@ -1424,13 +1574,12 @@ app.get("/api/projects/:orcid", async (req, res) => {
   }
 })
 
-// 🆕 ENDPOINTS CORRIGIDOS PARA GERENCIAMENTO DE PUBLICAÇÕES
+// ENDPOINTS PARA GERENCIAMENTO DE PUBLICAÇÕES
 
-// Endpoint corrigido para criar nova publicação
+// 🆕 ENDPOINT CORRIGIDO: Criar nova publicação com autores usando nova estrutura
 app.post("/api/publication/:orcid", async (req, res) => {
   try {
     const { orcid } = req.params
-    const authHeader = req.headers.authorization
 
     console.log(`🆕 Criando nova publicação para ORCID: ${orcid}`)
 
@@ -1445,15 +1594,9 @@ app.post("/api/publication/:orcid", async (req, res) => {
     const { title, year, type, source, abstract, identifier, authors, links } = req.body
 
     // Validações básicas
-    if (!title || !year || !type) {
+    if (!title || !year) {
       return res.status(400).json({
-        error: "Título, ano e tipo são obrigatórios",
-      })
-    }
-
-    if (!authors || authors.length === 0 || !authors[0].name) {
-      return res.status(400).json({
-        error: "Pelo menos um autor é obrigatório",
+        error: "Título e ano são obrigatórios",
       })
     }
 
@@ -1465,47 +1608,77 @@ app.post("/api/publication/:orcid", async (req, res) => {
       })
     }
 
+    // Validar autores
+    if (!authors || !Array.isArray(authors) || authors.length === 0) {
+      return res.status(400).json({
+        error: "Pelo menos um autor é obrigatório",
+      })
+    }
+
+    const validAuthors = authors.filter((author) => author.name && author.name.trim())
+    if (validAuthors.length === 0) {
+      return res.status(400).json({
+        error: "Pelo menos um autor com nome válido é obrigatório",
+      })
+    }
+
+    // Verificar se o usuário existe ANTES de iniciar transação
+    const usuarioId = await obterUsuarioIdPorOrcid(orcid)
+    if (!usuarioId) {
+      return res.status(404).json({
+        error: "Usuário não encontrado. Certifique-se de que o perfil foi carregado primeiro.",
+      })
+    }
+
     await client.query("BEGIN")
 
     try {
-      // Verificar se o usuário principal existe
-      const usuarioId = await obterUsuarioIdPorOrcid(orcid)
+      // Verificar se já existe uma publicação com o mesmo título para este usuário
+      const checkExistingPublication = `
+        SELECT id, nome
+        FROM Trabalhos
+        WHERE usuario_proprietario_id = $1 AND LOWER(TRIM(nome)) = LOWER(TRIM($2))
+      `
 
-      if (!usuarioId) {
-        return res.status(404).json({
-          error: "Usuário não encontrado. Certifique-se de que o perfil foi carregado primeiro.",
+      const existingPublication = await client.query(checkExistingPublication, [usuarioId, title])
+
+      if (existingPublication.rows.length > 0) {
+        await client.query("ROLLBACK")
+        return res.status(409).json({
+          error: "Já existe uma publicação com este título para este usuário",
+          existingPublication: existingPublication.rows[0],
         })
       }
 
-      // Criar publicação com proprietário
+      // Criar nova publicação
       const insertPublicationQuery = `
         INSERT INTO Trabalhos (nome, ano, tipo_de_trabalho, fonte, resumo, tipo_identificador, valor_identificador, links_adicionais, usuario_proprietario_id)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING id
       `
 
-      const linksArray = links && Array.isArray(links) ? links.map((link) => link.url) : null
-
       const publicationResult = await client.query(insertPublicationQuery, [
-        title,
+        title.trim(),
         Number.parseInt(year),
-        type,
-        source || null,
-        abstract || null,
+        type || "journal-article",
+        source?.trim() || null,
+        abstract?.trim() || null,
         identifier?.type || null,
-        identifier?.value || null,
-        linksArray,
-        usuarioId, // Marcar como proprietário
+        identifier?.value?.trim() || null,
+        links && Array.isArray(links) ? JSON.stringify(links) : null,
+        usuarioId,
       ])
 
       const publicationId = publicationResult.rows[0].id
 
       // Salvar autores usando nova estrutura
-      await salvarAutoresDoTrabalho(publicationId, authors)
+      await salvarAutoresDoTrabalho(publicationId, validAuthors)
 
       await client.query("COMMIT")
 
-      // Buscar publicação criada com autores
+      console.log(`✅ Nova publicação ${publicationId} criada para usuário ${orcid} com ${validAuthors.length} autores`)
+
+      // Buscar publicação criada
       const newPublication = await buscarTrabalhoComAutores(publicationId)
 
       res.json({
@@ -1513,8 +1686,6 @@ app.post("/api/publication/:orcid", async (req, res) => {
         message: "Publicação criada com sucesso",
         data: newPublication,
       })
-
-      console.log(`✅ Nova publicação ${publicationId} criada para usuário ${orcid} com ${authors.length} autores`)
     } catch (error) {
       await client.query("ROLLBACK")
       throw error
@@ -1528,18 +1699,16 @@ app.post("/api/publication/:orcid", async (req, res) => {
   }
 })
 
-// Endpoint corrigido para editar publicação
+// 🆕 ENDPOINT CORRIGIDO: Atualizar publicação específica com autores usando nova estrutura
 app.put("/api/publication/:orcid/:publicationId", async (req, res) => {
   try {
     const { orcid, publicationId } = req.params
-    const authHeader = req.headers.authorization
 
-    console.log(`🔧 Tentando atualizar publicação ${publicationId} para ORCID: ${orcid}`)
+    console.log(`🔧 Atualizando publicação ${publicationId} para ORCID: ${orcid}`)
 
     // Validar formato do ORCID
     const orcidRegex = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/
     if (!orcidRegex.test(orcid)) {
-      console.log(`❌ Formato ORCID inválido: ${orcid}`)
       return res.status(400).json({
         error: "Invalid ORCID format. Expected format: 0000-0000-0000-0000",
       })
@@ -1548,15 +1717,9 @@ app.put("/api/publication/:orcid/:publicationId", async (req, res) => {
     const { title, year, type, source, abstract, identifier, authors, links } = req.body
 
     // Validações básicas
-    if (!title || !year || !type) {
+    if (!title || !year) {
       return res.status(400).json({
-        error: "Título, ano e tipo são obrigatórios",
-      })
-    }
-
-    if (!authors || authors.length === 0 || !authors[0].name) {
-      return res.status(400).json({
-        error: "Pelo menos um autor é obrigatório",
+        error: "Título e ano são obrigatórios",
       })
     }
 
@@ -1568,72 +1731,100 @@ app.put("/api/publication/:orcid/:publicationId", async (req, res) => {
       })
     }
 
+    // Validar autores
+    if (!authors || !Array.isArray(authors) || authors.length === 0) {
+      return res.status(400).json({
+        error: "Pelo menos um autor é obrigatório",
+      })
+    }
+
+    const validAuthors = authors.filter((author) => author.name && author.name.trim())
+    if (validAuthors.length === 0) {
+      return res.status(400).json({
+        error: "Pelo menos um autor com nome válido é obrigatório",
+      })
+    }
+
+    // Verificar se o usuário existe ANTES de iniciar transação
+    const usuarioId = await obterUsuarioIdPorOrcid(orcid)
+    if (!usuarioId) {
+      return res.status(404).json({
+        error: "Usuário não encontrado. Certifique-se de que o perfil foi carregado primeiro.",
+      })
+    }
+
     await client.query("BEGIN")
 
     try {
-      // Verificar si o usuário existe
-      console.log(`🔍 Procurando usuário com ORCID: ${orcid}`)
-      const usuarioId = await obterUsuarioIdPorOrcid(orcid)
-
-      if (!usuarioId) {
-        console.log(`❌ Usuário não encontrado para ORCID: ${orcid}`)
-        await client.query("ROLLBACK")
-        return res.status(404).json({
-          error: "Usuário não encontrado. Certifique-se de que o perfil foi carregado primeiro.",
-        })
-      }
-
-      console.log(`✅ Usuário encontrado com ID: ${usuarioId}`)
-
-      // Verificar se a publicação pertence ao usuário
+      // Verificar se a publicação existe e pertence ao usuário
       const checkPublicationQuery = `
-        SELECT t.id, t.nome
-        FROM Trabalhos t
-        WHERE t.id = $1 AND t.usuario_proprietario_id = $2
+        SELECT id, nome
+        FROM Trabalhos
+        WHERE id = $1 AND usuario_proprietario_id = $2
       `
 
-      console.log(`🔍 Verificando publicação ${publicationId} para usuário ${usuarioId}`)
       const publicationExists = await client.query(checkPublicationQuery, [publicationId, usuarioId])
 
       if (publicationExists.rows.length === 0) {
-        console.log(`❌ Publicação ${publicationId} não encontrada para usuário ${usuarioId}`)
         await client.query("ROLLBACK")
         return res.status(404).json({
           error: "Publicação não encontrada ou não pertence ao usuário",
         })
       }
 
-      console.log(`✅ Publicação encontrada: ${publicationExists.rows[0].nome}`)
+      // Verificar se já existe outra publicação com o mesmo título (exceto a atual)
+      const checkDuplicateTitle = `
+        SELECT id, nome
+        FROM Trabalhos
+        WHERE usuario_proprietario_id = $1 AND LOWER(TRIM(nome)) = LOWER(TRIM($2)) AND id != $3
+      `
+
+      const duplicatePublication = await client.query(checkDuplicateTitle, [usuarioId, title, publicationId])
+
+      if (duplicatePublication.rows.length > 0) {
+        await client.query("ROLLBACK")
+        return res.status(409).json({
+          error: "Já existe outra publicação com este título para este usuário",
+          existingPublication: duplicatePublication.rows[0],
+        })
+      }
 
       // Atualizar publicação
       const updatePublicationQuery = `
         UPDATE Trabalhos 
         SET nome = $1, ano = $2, tipo_de_trabalho = $3, fonte = $4, 
-            resumo = $5, tipo_identificador = $6, valor_identificador = $7,
+            resumo = $5, tipo_identificador = $6, valor_identificador = $7, 
             links_adicionais = $8
         WHERE id = $9
       `
 
-      const linksArray = links && Array.isArray(links) ? links.map((link) => link.url) : null
-
-      await client.query(updatePublicationQuery, [
-        title,
+      const updateResult = await client.query(updatePublicationQuery, [
+        title.trim(),
         Number.parseInt(year),
-        type,
-        source || null,
-        abstract || null,
+        type || "journal-article",
+        source?.trim() || null,
+        abstract?.trim() || null,
         identifier?.type || null,
-        identifier?.value || null,
-        linksArray,
+        identifier?.value?.trim() || null,
+        links && Array.isArray(links) ? JSON.stringify(links) : null,
         publicationId,
       ])
 
+      if (updateResult.rowCount === 0) {
+        await client.query("ROLLBACK")
+        return res.status(404).json({
+          error: "Publicação não foi encontrada para atualização",
+        })
+      }
+
       // Atualizar autores usando nova estrutura
-      await salvarAutoresDoTrabalho(publicationId, authors)
+      await salvarAutoresDoTrabalho(publicationId, validAuthors)
 
       await client.query("COMMIT")
 
-      // Buscar publicação atualizada com autores
+      console.log(`✅ Publicação ${publicationId} atualizada para usuário ${orcid} com ${validAuthors.length} autores`)
+
+      // Buscar publicação atualizada
       const updatedPublication = await buscarTrabalhoComAutores(publicationId)
 
       res.json({
@@ -1641,8 +1832,6 @@ app.put("/api/publication/:orcid/:publicationId", async (req, res) => {
         message: "Publicação atualizada com sucesso",
         data: updatedPublication,
       })
-
-      console.log(`✅ Publicação ${publicationId} atualizada para usuário ${orcid} com ${authors.length} autores`)
     } catch (error) {
       await client.query("ROLLBACK")
       throw error
@@ -1684,11 +1873,11 @@ app.delete("/api/publication/:orcid/:publicationId", async (req, res) => {
         })
       }
 
-      // Verificar se a publicação pertence ao usuário
+      // Verificar se a publicação existe e pertence ao usuário
       const checkPublicationQuery = `
-        SELECT t.id, t.nome
-        FROM Trabalhos t
-        WHERE t.id = $1 AND t.usuario_proprietario_id = $2
+        SELECT id, nome
+        FROM Trabalhos
+        WHERE id = $1 AND usuario_proprietario_id = $2
       `
 
       const publicationExists = await client.query(checkPublicationQuery, [publicationId, usuarioId])
@@ -1699,10 +1888,10 @@ app.delete("/api/publication/:orcid/:publicationId", async (req, res) => {
         })
       }
 
-      // Remover autores primeiro
+      // Remover autores da publicação
       await client.query("DELETE FROM AutoresDeTrabalhos WHERE trabalho_id = $1", [publicationId])
 
-      // Remover publicação
+      // Remover a publicação
       await client.query("DELETE FROM Trabalhos WHERE id = $1", [publicationId])
 
       await client.query("COMMIT")
@@ -1726,7 +1915,7 @@ app.delete("/api/publication/:orcid/:publicationId", async (req, res) => {
   }
 })
 
-// Endpoint corrigido para listar publicações do usuário com autores
+// Endpoint para listar publicações do usuário
 app.get("/api/publications/:orcid", async (req, res) => {
   try {
     const { orcid } = req.params
@@ -1747,7 +1936,7 @@ app.get("/api/publications/:orcid", async (req, res) => {
       })
     }
 
-    // Buscar publicações com autores usando nova estrutura
+    // Buscar publicações do usuário com autores
     const queryPublicacoes = `
       SELECT 
         t.*,
@@ -1758,10 +1947,9 @@ app.get("/api/publications/:orcid", async (req, res) => {
             'orcidId', a.orcid_autor,
             'email', a.email_autor,
             'affiliation', a.afiliacao_autor,
-            'ordem', a.ordem_autor,
-            'isRegisteredUser', CASE WHEN a.usuario_id IS NOT NULL THEN true ELSE false END
+            'ordem', a.ordem_autor
           ) ORDER BY a.ordem_autor
-        ) FILTER (WHERE a.id IS NOT NULL) as todos_autores
+        ) FILTER (WHERE a.id IS NOT NULL) as autores
       FROM Trabalhos t
       LEFT JOIN AutoresDeTrabalhos a ON t.id = a.trabalho_id
       WHERE t.usuario_proprietario_id = $1
@@ -1771,39 +1959,12 @@ app.get("/api/publications/:orcid", async (req, res) => {
 
     const resultPublicacoes = await client.query(queryPublicacoes, [usuarioId])
 
-    const publications = resultPublicacoes.rows.map((trabalho) => ({
-      id: trabalho.id.toString(),
-      title: trabalho.nome,
-      year: trabalho.ano,
-      type: trabalho.tipo_de_trabalho,
-      source: trabalho.fonte || "",
-      abstract: trabalho.resumo || "",
-      identifier: {
-        type: trabalho.tipo_identificador || "",
-        value: trabalho.valor_identificador || "",
-      },
-      authors: (trabalho.todos_autores || [])
-        .filter((a) => a.name)
-        .map((autor) => ({
-          name: autor.name,
-          orcidId: autor.orcidId || "",
-          email: autor.email || "",
-          affiliation: autor.affiliation || "",
-        })),
-      links: trabalho.links_adicionais
-        ? trabalho.links_adicionais.map((url, index) => ({
-            name: `Link ${index + 1}`,
-            url: url,
-          }))
-        : [],
-    }))
-
     res.json({
       success: true,
-      data: publications,
+      data: resultPublicacoes.rows,
     })
   } catch (error) {
-    console.error("❌ Erro ao buscar publicações:", error)
+    console.error("❌ Erro ao listar publicações:", error)
     res.status(500).json({
       error: "Erro interno do servidor",
       message: error.message,
@@ -1811,45 +1972,14 @@ app.get("/api/publications/:orcid", async (req, res) => {
   }
 })
 
-// ENDPOINTS ORCID ORIGINAIS (mantidos como estavam)
+// ENDPOINTS PARA ORCID API
 
-app.post("/api/orcid/token", async (req, res) =>
-{
+// Endpoint para obter token de acesso
+app.post("/api/orcid/token", async (req, res) => {
   try {
-    const {
-      client_id,
-      client_secret,
-      grant_type = "client_credentials",
-      scope = "/read-public",
-      code,
-      redirect_uri,
-    } = req.body
-
-    if (!client_id || !client_secret) {
-      return res.status(400).json({
-        error: "client_id and client_secret are required",
-      })
-    }
+    const { client_id, client_secret, grant_type, code, redirect_uri } = req.body
 
     const tokenUrl = "https://orcid.org/oauth/token"
-    
-    const body = new URLSearchParams({
-      client_id,
-      client_secret,
-      grant_type,
-    })
-
-    if (grant_type === "authorization_code") {
-      if (!code || !redirect_uri) {
-        return res.status(400).json({
-          error: "code and redirect_uri are required for authorization_code grant",
-        })
-      }
-      body.append("code", code)
-      body.append("redirect_uri", redirect_uri)
-    } else {
-      body.append("scope", scope)
-    }
 
     const response = await fetch(tokenUrl, {
       method: "POST",
@@ -1857,229 +1987,209 @@ app.post("/api/orcid/token", async (req, res) =>
         Accept: "application/json",
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: body,
+      body: new URLSearchParams({
+        client_id,
+        client_secret,
+        grant_type,
+        code,
+        redirect_uri,
+      }),
     })
 
     const data = await response.json()
 
-    if (response.ok) {
-      res.json(data)
-    } else {
-      res.status(response.status).json({
-        error: "Failed to get access token",
-        details: data,
-      })
+    if (!response.ok) {
+      return res.status(response.status).json(data)
     }
+
+    res.json(data)
   } catch (error) {
+    console.error("❌ Erro no proxy de token:", error)
     res.status(500).json({
-      error: "Internal server error",
+      error: "Erro interno do servidor",
       message: error.message,
     })
   }
-}
-)
+})
 
-app.get("/api/orcid/search", async (req, res) =>
-{
+// Endpoint para buscar perfis ORCID (público, sem autenticação)
+app.get("/api/orcid/search", async (req, res) => {
   try {
     const { q, start = 0, rows = 10 } = req.query
 
     if (!q) {
       return res.status(400).json({
-        error: 'Query parameter "q" is required',
+        error: "Parâmetro de busca 'q' é obrigatório",
       })
     }
 
-    const searchUrl = `https://pub.orcid.org/v3.0/search?q=${encodeURIComponent(q)}&start=${start}&rows=${rows}`
+    const searchUrl = `https://pub.orcid.org/v3.0/search/?q=${encodeURIComponent(q)}&start=${start}&rows=${rows}`
 
     const response = await fetch(searchUrl, {
       headers: {
         Accept: "application/json",
-        "User-Agent": "ORCID-Proxy-Server/1.0",
       },
     })
 
-    const data = await response.json()
-
-    if (response.ok) {
-      res.json(data)
-    } else {
-      res.status(response.status).json({
-        error: "Failed to search ORCID profiles",
-        details: data,
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: "Erro ao buscar na API do ORCID",
       })
     }
+
+    const data = await response.json()
+    res.json(data)
   } catch (error) {
+    console.error("❌ Erro na busca ORCID:", error)
     res.status(500).json({
-      error: "Internal server error",
+      error: "Erro interno do servidor",
       message: error.message,
     })
   }
-}
-)
+})
 
+// 🆕 ENDPOINT CORRIGIDO: Obter perfil ORCID com fallback para banco de dados
 app.get("/api/orcid/profile/:orcid", async (req, res) => {
   try {
     const { orcid } = req.params
     const authHeader = req.headers.authorization
 
-    const orcidRegex = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/
+    console.log(`🔍 Buscando perfil ORCID: ${orcid}`)
 
+    // Validar formato do ORCID
+    const orcidRegex = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/
     if (!orcidRegex.test(orcid)) {
       return res.status(400).json({
         error: "Invalid ORCID format. Expected format: 0000-0000-0000-0000",
       })
     }
 
-    // 🔧 CORREÇÃO: SEMPRE buscar no banco primeiro, independente de autenticação
-    console.log(`🔍 Buscando perfil no banco para ORCID: ${orcid}`)
+    // Primeiro, tentar buscar no banco de dados
     const dadosBanco = await buscarUsuarioNoBanco(orcid)
 
     if (dadosBanco) {
-      console.log(`✅ Perfil encontrado no banco para ORCID: ${orcid} - RETORNANDO DADOS DO BANCO`)
+      console.log(`✅ Dados encontrados no banco para ${orcid}`)
       return res.json(dadosBanco)
     }
 
-    console.log(`📡 Perfil não encontrado no banco, buscando no ORCID: ${orcid}`)
+    // Se não encontrou no banco, tentar buscar na API do ORCID
+    console.log(`🌐 Buscando na API do ORCID para ${orcid}`)
 
-    // Se tem autenticação, busca no ORCID e salva
-    if (authHeader) {
-      const baseUrl = "https://pub.orcid.org"
-      const profileUrl = `${baseUrl}/v3.0/${orcid}/record`
-
-      const headers = {
-        Accept: "application/json",
-        Authorization: authHeader,
-      }
-
-      const response = await fetch(profileUrl, { headers })
-
-      if (response.ok) {
-        const data = await response.json()
-
-        // Salvar dados no banco APENAS se não existir
-        console.log(`💾 Salvando dados do ORCID ${orcid} no banco pela PRIMEIRA VEZ...`)
-        const usuarioId = await salvarUsuarioNoBanco(data)
-
-        if (usuarioId) {
-          // Retornar dados salvos do banco para garantir consistência
-          const dadosSalvos = await buscarUsuarioNoBanco(orcid)
-          if (dadosSalvos) {
-            console.log(`✅ Retornando dados salvos do banco para ORCID: ${orcid}`)
-            return res.json(dadosSalvos)
-          }
-        }
-
-        // Se falhou ao salvar, retorna dados do ORCID mesmo assim
-        return res.json(data)
-      } else {
-        const errorData = await response.json()
-        return res.status(response.status).json({
-          error: "Failed to fetch ORCID profile",
-          details: errorData,
-        })
-      }
-    }
-
-    // Busca pública no ORCID (sem autenticação) - APENAS se não tem no banco
-    const baseUrl = "https://pub.orcid.org"
-    const profileUrl = `${baseUrl}/v3.0/${orcid}/record`
+    const profileUrl = `https://pub.orcid.org/v3.0/${orcid}`
 
     const headers = {
       Accept: "application/json",
+    }
+
+    // Se tem token de autorização, usar endpoint privado
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.substring(7)
+      headers.Authorization = `Bearer ${token}`
+      // Usar endpoint privado se autenticado
+      profileUrl.replace("pub.orcid.org", "api.orcid.org")
     }
 
     const response = await fetch(profileUrl, { headers })
-    const data = await response.json()
 
-    if (response.ok) {
-      console.log(`✅ Retornando dados públicos do ORCID para: ${orcid}`)
-      res.json(data)
-    } else {
-      res.status(response.status).json({
-        error: "Failed to fetch ORCID profile",
-        details: data,
+    if (!response.ok) {
+      console.log(`❌ Erro na API do ORCID: ${response.status}`)
+      return res.status(response.status).json({
+        error: "Erro ao buscar perfil na API do ORCID",
+        status: response.status,
       })
     }
+
+    const data = await response.json()
+
+    // Se conseguiu dados da API, salvar no banco para próximas consultas
+    if (data && data["orcid-identifier"]) {
+      console.log(`💾 Salvando dados do ORCID ${orcid} no banco...`)
+      await salvarUsuarioNoBanco(data)
+    }
+
+    console.log(`✅ Dados obtidos da API do ORCID para ${orcid}`)
+    res.json(data)
   } catch (error) {
-    console.error("❌ Erro ao buscar perfil:", error)
+    console.error("❌ Erro ao buscar perfil ORCID:", error)
     res.status(500).json({
-      error: "Internal server error",
+      error: "Erro interno do servidor",
       message: error.message,
     })
   }
 })
 
-// 🔧 CORREÇÃO 1: Buscar seção fundings no banco primeiro
-app.get("/api/orcid/profile/:orcid/:section", async (req, res) => {
+// 🆕 ENDPOINT CORRIGIDO: Obter trabalhos ORCID com fallback para banco de dados
+app.get("/api/orcid/profile/:orcid/works", async (req, res) => {
   try {
-    const { orcid, section } = req.params
+    const { orcid } = req.params
     const authHeader = req.headers.authorization
 
+    console.log(`📚 Buscando trabalhos ORCID: ${orcid}`)
+
+    // Validar formato do ORCID
     const orcidRegex = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/
     if (!orcidRegex.test(orcid)) {
       return res.status(400).json({
-        error: "Invalid ORCID format. Valid sections: " + validSections.join(", "),
+        error: "Invalid ORCID format. Expected format: 0000-0000-0000-0000",
       })
     }
 
-    const validSections = ["works", "employments", "educations", "fundings", "peer-reviews", "person"]
+    // Primeiro, tentar buscar no banco de dados
+    const dadosBanco = await buscarUsuarioNoBanco(orcid)
 
-    if (!validSections.includes(section)) {
-      return res.status(400).json({
-        error: "Invalid section. Valid sections: " + validSections.join(", "),
-      })
+    if (dadosBanco && dadosBanco["activities-summary"]?.works) {
+      console.log(`✅ Trabalhos encontrados no banco para ${orcid}`)
+      return res.json(dadosBanco["activities-summary"].works)
     }
 
-    // 🔧 CORREÇÃO: Buscar no banco primeiro para works E fundings
-    if ((section === "works" || section === "fundings") && authHeader) {
-      console.log(`🔍 Buscando seção autenticada '${section}' para ORCID: ${orcid}`)
-      const dadosBanco = await buscarUsuarioNoBanco(orcid)
+    // Se não encontrou no banco, tentar buscar na API do ORCID
+    console.log(`🌐 Buscando trabalhos na API do ORCID para ${orcid}`)
 
-      if (dadosBanco && dadosBanco["activities-summary"]?.[section]) {
-        console.log(`✅ Seção '${section}' encontrada no banco para ORCID: ${orcid}`)
-        return res.json(dadosBanco["activities-summary"][section])
-      }
-
-      console.log(`📡 Seção '${section}' não encontrada no banco, buscando no ORCID: ${orcid}`)
-    }
-
-    const baseUrl = "https://pub.orcid.org"
-    const sectionUrl = `${baseUrl}/v3.0/${orcid}/${section}`
+    let worksUrl = `https://pub.orcid.org/v3.0/${orcid}/works`
 
     const headers = {
       Accept: "application/json",
     }
 
-    if (authHeader) {
-      headers.Authorization = authHeader
+    // Se tem token de autorização, usar endpoint privado
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.substring(7)
+      headers.Authorization = `Bearer ${token}`
+      worksUrl = `https://api.orcid.org/v3.0/${orcid}/works`
     }
 
-    const response = await fetch(sectionUrl, { headers })
-    const data = await response.json()
+    const response = await fetch(worksUrl, { headers })
 
-    if (response.ok) {
-      res.json(data)
-    } else {
-      res.status(response.status).json({
-        error: `Failed to fetch ORCID ${section}`,
-        details: data,
+    if (!response.ok) {
+      console.log(`❌ Erro na API do ORCID: ${response.status}`)
+      return res.status(response.status).json({
+        error: "Erro ao buscar trabalhos na API do ORCID",
+        status: response.status,
       })
     }
+
+    const data = await response.json()
+
+    console.log(`✅ Trabalhos obtidos da API do ORCID para ${orcid}`)
+    res.json(data)
   } catch (error) {
+    console.error("❌ Erro ao buscar trabalhos ORCID:", error)
     res.status(500).json({
-      error: "Internal server error",
+      error: "Erro interno do servidor",
       message: error.message,
     })
   }
 })
 
-app.get("/api/orcid/profile/:orcid/work/:putCode", async (req, res) =>
-{
+// 🆕 ENDPOINT CORRIGIDO: Obter trabalho individual ORCID com fallback para banco de dados
+app.get("/api/orcid/profile/:orcid/work/:putCode", async (req, res) => {
   try {
     const { orcid, putCode } = req.params
     const authHeader = req.headers.authorization
 
+    console.log(`📄 Buscando trabalho individual ORCID: ${orcid}/${putCode}`)
+
+    // Validar formato do ORCID
     const orcidRegex = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/
     if (!orcidRegex.test(orcid)) {
       return res.status(400).json({
@@ -2087,104 +2197,133 @@ app.get("/api/orcid/profile/:orcid/work/:putCode", async (req, res) =>
       })
     }
 
-    // Se tem autenticação, busca primeiro no banco
-    if (authHeader) {
-      console.log(`🔍 Buscando trabalho autenticado ${putCode} para ORCID: ${orcid}`)
-      const usuarioId = await obterUsuarioIdPorOrcid(orcid)
-
-      if (!usuarioId) {
-        console.log(`🔍 Buscando usuário com ORCID: ${orcid}`)
-        const dadosBanco = await buscarUsuarioNoBanco(orcid)
-
-        if (!dadosBanco) {
-          return res.status(404).json({
-            error: "Usuário não encontrado. Certifique-se de que o perfil foi carregado primeiro.",
-          })
-        }
-      }
-
-      const dadosBanco = await buscarTrabalhoComAutores(putCode)
-
+    // Primeiro, tentar buscar no banco de dados
+    const usuarioId = await obterUsuarioIdPorOrcid(orcid)
+    if (usuarioId) {
+      const dadosBanco = await buscarTrabalhoNoBanco(usuarioId, putCode)
       if (dadosBanco) {
-        console.log(`✅ Trabalho ${putCode} encontrado no banco para ORCID: ${orcid}`)
+        console.log(`✅ Trabalho ${putCode} encontrado no banco para ${orcid}`)
         return res.json(dadosBanco)
-      }
-
-      console.log(`📡 Trabalho ${putCode} não encontrado no banco, buscando no ORCID: ${orcid}`)
-
-      // Busca no ORCID com autenticação
-      const baseUrl = "https://pub.orcid.org"
-      const workUrl = `${baseUrl}/v3.0/${orcid}/work/${putCode}`
-
-      const headers = {
-        Accept: "application/json",
-        Authorization: authHeader,
-      }
-
-      const response = await fetch(workUrl, { headers })
-
-      if (response.ok) {
-        const data = await response.json()
-
-        // Salvar dados no banco se temos usuário
-        if (usuarioId) {
-          console.log(`💾 Salvando trabalho ${putCode} do ORCID ${orcid} no banco...`)
-          const trabalhoId = await salvarTrabalhoDetalhado(usuarioId, data, putCode)
-
-          if (trabalhoId) {
-            // Retornar dados salvos do banco para garantir consistência
-            const dadosSalvos = await buscarTrabalhoComAutores(trabalhoId)
-            if (dadosSalvos) {
-              return res.json(dadosSalvos)
-            }
-          }
-        }
-
-        // Se falhou ao salvar, retorna dados do ORCID mesmo assim
-        return res.json(data)
-      } else {
-        const errorData = await response.json()
-        return res.status(response.status).json({
-          error: `Failed to fetch ORCID work ${putCode}`,
-          details: errorData,
-        })
       }
     }
 
-    // Busca pública no ORCID (sem autenticação)
-    const baseUrl = "https://pub.orcid.org"
-    const workUrl = `${baseUrl}/v3.0/${orcid}/work/${putCode}`
+    // Se não encontrou no banco, tentar buscar na API do ORCID
+    console.log(`🌐 Buscando trabalho ${putCode} na API do ORCID para ${orcid}`)
+
+    let workUrl = `https://pub.orcid.org/v3.0/${orcid}/work/${putCode}`
 
     const headers = {
       Accept: "application/json",
     }
 
-    const response = await fetch(workUrl, { headers })
-    const data = await response.json()
+    // Se tem token de autorização, usar endpoint privado
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.substring(7)
+      headers.Authorization = `Bearer ${token}`
+      workUrl = `https://api.orcid.org/v3.0/${orcid}/work/${putCode}`
+    }
 
-    if (response.ok) {
-      res.json(data)
-    } else {
-      res.status(response.status).json({
-        error: `Failed to fetch ORCID work ${putCode}`,
-        details: data,
+    const response = await fetch(workUrl, { headers })
+
+    if (!response.ok) {
+      console.log(`❌ Erro na API do ORCID: ${response.status}`)
+      return res.status(response.status).json({
+        error: "Erro ao buscar trabalho na API do ORCID",
+        status: response.status,
       })
     }
+
+    const data = await response.json()
+
+    // Se conseguiu dados da API e tem usuário no banco, salvar trabalho detalhado
+    if (data && usuarioId) {
+      console.log(`💾 Salvando trabalho detalhado ${putCode} no banco...`)
+      await salvarTrabalhoDetalhado(usuarioId, data, putCode)
+    }
+
+    console.log(`✅ Trabalho ${putCode} obtido da API do ORCID para ${orcid}`)
+    res.json(data)
   } catch (error) {
+    console.error("❌ Erro ao buscar trabalho ORCID:", error)
     res.status(500).json({
-      error: "Internal server error",
+      error: "Erro interno do servidor",
       message: error.message,
     })
   }
-}
-)
+})
 
-// 🔧 CORREÇÃO 2: Buscar funding no banco primeiro
+// 🆕 ENDPOINT CORRIGIDO: Obter financiamentos ORCID com fallback para banco de dados
+app.get("/api/orcid/profile/:orcid/fundings", async (req, res) => {
+  try {
+    const { orcid } = req.params
+    const authHeader = req.headers.authorization
+
+    console.log(`💰 Buscando financiamentos ORCID: ${orcid}`)
+
+    // Validar formato do ORCID
+    const orcidRegex = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/
+    if (!orcidRegex.test(orcid)) {
+      return res.status(400).json({
+        error: "Invalid ORCID format. Expected format: 0000-0000-0000-0000",
+      })
+    }
+
+    // Primeiro, tentar buscar no banco de dados
+    const dadosBanco = await buscarUsuarioNoBanco(orcid)
+
+    if (dadosBanco && dadosBanco["activities-summary"]?.fundings) {
+      console.log(`✅ Financiamentos encontrados no banco para ${orcid}`)
+      return res.json(dadosBanco["activities-summary"].fundings)
+    }
+
+    // Se não encontrou no banco, tentar buscar na API do ORCID
+    console.log(`🌐 Buscando financiamentos na API do ORCID para ${orcid}`)
+
+    let fundingsUrl = `https://pub.orcid.org/v3.0/${orcid}/fundings`
+
+    const headers = {
+      Accept: "application/json",
+    }
+
+    // Se tem token de autorização, usar endpoint privado
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.substring(7)
+      headers.Authorization = `Bearer ${token}`
+      fundingsUrl = `https://api.orcid.org/v3.0/${orcid}/fundings`
+    }
+
+    const response = await fetch(fundingsUrl, { headers })
+
+    if (!response.ok) {
+      console.log(`❌ Erro na API do ORCID: ${response.status}`)
+      return res.status(response.status).json({
+        error: "Erro ao buscar financiamentos na API do ORCID",
+        status: response.status,
+      })
+    }
+
+    const data = await response.json()
+
+    console.log(`✅ Financiamentos obtidos da API do ORCID para ${orcid}`)
+    res.json(data)
+  } catch (error) {
+    console.error("❌ Erro ao buscar financiamentos ORCID:", error)
+    res.status(500).json({
+      error: "Erro interno do servidor",
+      message: error.message,
+    })
+  }
+})
+
+// 🆕 ENDPOINT CORRIGIDO: Obter financiamento individual ORCID com fallback para banco de dados
 app.get("/api/orcid/profile/:orcid/funding/:putCode", async (req, res) => {
   try {
     const { orcid, putCode } = req.params
     const authHeader = req.headers.authorization
 
+    console.log(`💰 Buscando financiamento individual ORCID: ${orcid}/${putCode}`)
+
+    // Validar formato do ORCID
     const orcidRegex = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/
     if (!orcidRegex.test(orcid)) {
       return res.status(400).json({
@@ -2192,88 +2331,72 @@ app.get("/api/orcid/profile/:orcid/funding/:putCode", async (req, res) => {
       })
     }
 
-    // 🔧 CORREÇÃO: SEMPRE buscar no banco primeiro
-    console.log(`🔍 Buscando financiamento ${putCode} no banco para ORCID: ${orcid}`)
+    // Primeiro, tentar buscar no banco de dados
     const usuarioId = await obterUsuarioIdPorOrcid(orcid)
-
     if (usuarioId) {
       const dadosBanco = await buscarProjetoNoBanco(usuarioId, putCode)
-
       if (dadosBanco) {
-        console.log(`✅ Financiamento ${putCode} encontrado no banco para ORCID: ${orcid}`)
+        console.log(`✅ Financiamento ${putCode} encontrado no banco para ${orcid}`)
         return res.json(dadosBanco)
       }
     }
 
-    console.log(`📡 Financiamento ${putCode} não encontrado no banco, buscando no ORCID: ${orcid}`)
+    // Se não encontrou no banco, tentar buscar na API do ORCID
+    console.log(`🌐 Buscando financiamento ${putCode} na API do ORCID para ${orcid}`)
 
-    // Se tem autenticação, busca no ORCID
-    if (authHeader) {
-      const baseUrl = "https://pub.orcid.org"
-      const fundingUrl = `${baseUrl}/v3.0/${orcid}/funding/${putCode}`
-
-      const headers = {
-        Accept: "application/json",
-        Authorization: authHeader,
-      }
-
-      const response = await fetch(fundingUrl, { headers })
-
-      if (response.ok) {
-        const data = await response.json()
-
-        // Salvar dados no banco se temos usuário
-        if (usuarioId) {
-          console.log(`💾 Salvando financiamento ${putCode} do ORCID ${orcid} no banco...`)
-          const projetoId = await salvarProjetoDetalhado(usuarioId, data, putCode)
-
-          if (projetoId) {
-            const dadosSalvos = await buscarProjetoNoBanco(usuarioId, projetoId)
-            if (dadosSalvos) {
-              return res.json(dadosSalvos)
-            }
-          }
-        }
-
-        return res.json(data)
-      } else {
-        const errorData = await response.json()
-        return res.status(response.status).json({
-          error: `Failed to fetch ORCID funding ${putCode}`,
-          details: errorData,
-        })
-      }
-    }
-
-    // Busca pública no ORCID (sem autenticação)
-    const baseUrl = "https://pub.orcid.org"
-    const fundingUrl = `${baseUrl}/v3.0/${orcid}/funding/${putCode}`
+    let fundingUrl = `https://pub.orcid.org/v3.0/${orcid}/funding/${putCode}`
 
     const headers = {
       Accept: "application/json",
     }
 
-    const response = await fetch(fundingUrl, { headers })
-    const data = await response.json()
+    // Se tem token de autorização, usar endpoint privado
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.substring(7)
+      headers.Authorization = `Bearer ${token}`
+      fundingUrl = `https://api.orcid.org/v3.0/${orcid}/funding/${putCode}`
+    }
 
-    if (response.ok) {
-      res.json(data)
-    } else {
-      res.status(response.status).json({
-        error: `Failed to fetch ORCID funding ${putCode}`,
-        details: data,
+    const response = await fetch(fundingUrl, { headers })
+
+    if (!response.ok) {
+      console.log(`❌ Erro na API do ORCID: ${response.status}`)
+      return res.status(response.status).json({
+        error: "Erro ao buscar financiamento na API do ORCID",
+        status: response.status,
       })
     }
+
+    const data = await response.json()
+
+    // Se conseguiu dados da API e tem usuário no banco, salvar projeto detalhado
+    if (data && usuarioId) {
+      console.log(`💾 Salvando projeto detalhado ${putCode} no banco...`)
+      await salvarProjetoDetalhado(usuarioId, data, putCode)
+    }
+
+    console.log(`✅ Financiamento ${putCode} obtido da API do ORCID para ${orcid}`)
+    res.json(data)
   } catch (error) {
+    console.error("❌ Erro ao buscar financiamento ORCID:", error)
     res.status(500).json({
-      error: "Internal server error",
+      error: "Erro interno do servidor",
       message: error.message,
     })
   }
 })
 
-app.listen(PORT, () =>
-{
+// Iniciar servidor
+app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`)
-}
-)
+  console.log(`📡 Endpoints disponíveis em http://localhost:${PORT}`)
+  console.log(`🆕 Versão com suporte completo a associações projeto-publicação!`)
+})
+
+// Graceful shutdown
+process.on("SIGINT", async () => {
+  console.log("\n🛑 Encerrando servidor...")
+  await client.end()
+  console.log("📦 Conexão com PostgreSQL encerrada")
+  process.exit(0)
+})

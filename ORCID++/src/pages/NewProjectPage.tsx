@@ -1,72 +1,138 @@
+"use client"
 
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
+import type React from "react"
+import { useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { ArrowLeft, Save } from "lucide-react"
+import { toast } from "@/hooks/use-toast"
 
-const NewProjectPage = () => {
-  const navigate = useNavigate();
-  
+interface NewProjectPageProps {
+  orcidId?: string
+  token?: string | null
+  onProjectCreated?: (project: any) => void
+}
+
+const NewProjectPage: React.FC<NewProjectPageProps> = ({ orcidId, token, onProjectCreated }) => {
+  const navigate = useNavigate()
+
   const [project, setProject] = useState({
-    name: '',
+    name: "",
     startYear: new Date().getFullYear(),
-    endYear: '',
-    funding: '',
-    fundingAgency: '',
-    role: '',
-    description: '',
-    status: 'Em andamento'
-  });
+    endYear: "",
+    fundingAgency: "",
+    funding: "",
+    role: "",
+    description: "",
+    status: "Em andamento",
+  })
+
+  const [saving, setSaving] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setProject(prev => ({
+    const { name, value } = e.target
+    setProject((prev) => ({
       ...prev,
-      [name]: value
-    }));
-  };
+      [name]: value,
+    }))
+  }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Validação básica
     if (!project.name.trim()) {
       toast({
         title: "Erro",
         description: "O nome do projeto é obrigatório.",
-        variant: "destructive"
-      });
-      return;
+        variant: "destructive",
+      })
+      return
     }
 
     if (!project.description.trim()) {
       toast({
         title: "Erro",
         description: "A descrição do projeto é obrigatória.",
-        variant: "destructive"
-      });
-      return;
+        variant: "destructive",
+      })
+      return
     }
 
-    if (project.endYear && parseInt(project.endYear) < project.startYear) {
+    if (project.endYear && Number.parseInt(project.endYear) < project.startYear) {
       toast({
         title: "Erro",
         description: "O ano de término não pode ser anterior ao ano de início.",
-        variant: "destructive"
-      });
-      return;
+        variant: "destructive",
+      })
+      return
     }
 
-    // Em um app real, enviaria para a API
-    toast({
-      title: "Projeto criado",
-      description: "O novo projeto foi criado com sucesso.",
-    });
-    navigate('/projects');
-  };
+    if (!orcidId) {
+      toast({
+        title: "Erro",
+        description: "ORCID ID não encontrado. Faça login novamente.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setSaving(true)
+
+    try {
+      console.log("Criando projeto via API...", project)
+
+      // Preparar dados para envio
+      const projectData = {
+        name: project.name,
+        startYear: project.startYear,
+        endYear: project.endYear ? Number.parseInt(project.endYear) : null,
+        fundingAgency: project.fundingAgency,
+        funding: project.funding,
+        role: project.role,
+        description: project.description,
+      }
+
+      // Fazer requisição para o endpoint
+      const response = await fetch(`http://localhost:3000/api/project/${orcidId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify(projectData),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erro ao criar projeto")
+      }
+
+      toast({
+        title: "Projeto criado",
+        description: "O novo projeto foi criado com sucesso.",
+      })
+
+      // Chamar callback se fornecido
+      if (onProjectCreated && result.data) {
+        onProjectCreated(result.data)
+      }
+
+      navigate("/projects")
+    } catch (error) {
+      console.error("Erro ao criar projeto:", error)
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Não foi possível criar o projeto.",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-3xl">
@@ -81,11 +147,11 @@ const NewProjectPage = () => {
         <div className="space-y-6">
           <div>
             <Label htmlFor="name">Nome do Projeto *</Label>
-            <Input 
-              id="name" 
-              name="name" 
-              value={project.name} 
-              onChange={handleChange} 
+            <Input
+              id="name"
+              name="name"
+              value={project.name}
+              onChange={handleChange}
               className="mt-1"
               placeholder="Digite o nome do projeto"
             />
@@ -94,12 +160,12 @@ const NewProjectPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="startYear">Ano de Início *</Label>
-              <Input 
-                id="startYear" 
-                name="startYear" 
+              <Input
+                id="startYear"
+                name="startYear"
                 type="number"
-                value={project.startYear} 
-                onChange={handleChange} 
+                value={project.startYear}
+                onChange={handleChange}
                 className="mt-1"
                 min="1900"
                 max={new Date().getFullYear() + 10}
@@ -107,12 +173,12 @@ const NewProjectPage = () => {
             </div>
             <div>
               <Label htmlFor="endYear">Ano de Término</Label>
-              <Input 
-                id="endYear" 
-                name="endYear" 
+              <Input
+                id="endYear"
+                name="endYear"
                 type="number"
-                value={project.endYear} 
-                onChange={handleChange} 
+                value={project.endYear}
+                onChange={handleChange}
                 className="mt-1"
                 placeholder="Deixe em branco se em andamento"
                 min={project.startYear}
@@ -124,10 +190,10 @@ const NewProjectPage = () => {
           <div>
             <Label htmlFor="status">Status do Projeto</Label>
             <select
-              id="status" 
-              name="status" 
-              value={project.status} 
-              onChange={handleChange} 
+              id="status"
+              name="status"
+              value={project.status}
+              onChange={handleChange}
               className="w-full mt-1 border border-gray-300 rounded-md p-2"
             >
               <option value="Em andamento">Em andamento</option>
@@ -141,10 +207,10 @@ const NewProjectPage = () => {
           <div>
             <Label htmlFor="role">Seu Papel no Projeto</Label>
             <select
-              id="role" 
-              name="role" 
-              value={project.role} 
-              onChange={handleChange} 
+              id="role"
+              name="role"
+              value={project.role}
+              onChange={handleChange}
               className="w-full mt-1 border border-gray-300 rounded-md p-2"
             >
               <option value="">Selecione seu papel</option>
@@ -161,22 +227,22 @@ const NewProjectPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="fundingAgency">Agência de Fomento</Label>
-              <Input 
-                id="fundingAgency" 
-                name="fundingAgency" 
-                value={project.fundingAgency} 
-                onChange={handleChange} 
+              <Input
+                id="fundingAgency"
+                name="fundingAgency"
+                value={project.fundingAgency}
+                onChange={handleChange}
                 className="mt-1"
                 placeholder="Ex: FAPESP, CNPq, CAPES"
               />
             </div>
             <div>
               <Label htmlFor="funding">Valor do Financiamento</Label>
-              <Input 
-                id="funding" 
-                name="funding" 
-                value={project.funding} 
-                onChange={handleChange} 
+              <Input
+                id="funding"
+                name="funding"
+                value={project.funding}
+                onChange={handleChange}
                 className="mt-1"
                 placeholder="Ex: R$ 100.000,00"
               />
@@ -185,11 +251,11 @@ const NewProjectPage = () => {
 
           <div>
             <Label htmlFor="description">Descrição do Projeto *</Label>
-            <Textarea 
-              id="description" 
-              name="description" 
-              value={project.description} 
-              onChange={handleChange} 
+            <Textarea
+              id="description"
+              name="description"
+              value={project.description}
+              onChange={handleChange}
               rows={6}
               className="mt-1"
               placeholder="Descreva os objetivos, metodologia e relevância do projeto"
@@ -210,14 +276,19 @@ const NewProjectPage = () => {
             <Button variant="outline" onClick={() => navigate(-1)}>
               Cancelar
             </Button>
-            <Button onClick={handleSave} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
-              <Save size={18} /> Criar projeto
+            <Button
+              onClick={handleSave}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+              disabled={saving}
+            >
+              <Save size={18} />
+              {saving ? "Criando..." : "Criar projeto"}
             </Button>
           </div>
         </div>
       </Card>
     </div>
-  );
-};
+  )
+}
 
-export default NewProjectPage;
+export default NewProjectPage

@@ -827,6 +827,8 @@ app.get("/", (req, res) => {
       "/api/publication/:orcid": "POST - Create new publication",
       "/api/publication/:orcid/:publicationId": "PUT/DELETE - Update/Delete publication",
       "/api/publications/:orcid": "GET - List user publications",
+      "/api/projetoTrabalho/:trabalhoId/:projetoID": "POST - Associate project with publication",
+      "/api/projetoTrabalho/:trabalhoId/:projetoID": "DELETE - Dissociate project from publication",
     },
     note: "🆕 Versão corrigida com verificação de usuários existentes e tratamento adequado de erros!",
   })

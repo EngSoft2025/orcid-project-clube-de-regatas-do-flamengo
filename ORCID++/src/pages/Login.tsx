@@ -9,7 +9,7 @@ const Login = () => {
   const handleOrcidLogin = () => {
     // ORCID OAuth parameters
     const clientId = 'APP-7ZEPLIK1RF37GXE9';
-    const redirectUri = encodeURIComponent('https://09ff-45-161-243-216.ngrok-free.app/login/callback');
+    const redirectUri = encodeURIComponent('https://9d9c-2804-14d-8084-a3a5-3094-d7cd-95f5-1cf5.ngrok-free.app/login/callback');
     const scope = encodeURIComponent('/authenticate');
     const responseType = 'code';
     const state = Math.random().toString(36).substring(2, 15); // Generate random state for security

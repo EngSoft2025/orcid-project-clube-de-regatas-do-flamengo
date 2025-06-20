@@ -191,6 +191,25 @@ const NewPublicationPage: React.FC<NewPublicationPageProps> = ({
     }
   }
 
+  const handleSaveAndAddNew = async () => {
+    await handleSave()
+  
+    // Resetar o formulário somente se não estiver salvando
+    if (!saving) {
+      setPublication({
+        title: "",
+        authors: [{ name: "", orcidId: "" }],
+        year: new Date().getFullYear(),
+        type: "journal-article",
+        source: "",
+        identifier: { type: "doi", value: "" },
+        project: "",
+        abstract: "",
+        links: [{ name: "", url: "" }],
+      })
+    }
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-3xl">
       <div className="flex items-center justify-between mb-6">
@@ -396,6 +415,17 @@ const NewPublicationPage: React.FC<NewPublicationPageProps> = ({
               <li>• Adicione todos os autores na ordem correta de publicação</li>
             </ul>
           </div>
+
+          <div className="flex justify-end gap-4 mt-6">
+            <Button variant="outline" onClick={handleSaveAndAddNew} disabled={saving}>
+              <Plus size={16} className="mr-2" />
+              Salvar e adicionar outra
+            </Button>
+            <Button onClick={handleSave} disabled={saving}>
+              Salvar publicação
+            </Button>
+          </div>
+
         </div>
       </Card>
     </div>

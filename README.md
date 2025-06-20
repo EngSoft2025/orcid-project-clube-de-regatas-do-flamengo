@@ -2,6 +2,11 @@
 
 Documentação para a realização do Trabalho da Disciplina SCC0130 - Engenharia de Software, ministrada pelo Prof. Dr. Seiji Isotani.
 
+## Requerimentos
+1. Node.js (https://nodejs.org/pt)
+2. ngrok (https://ngrok.com/)
+3. PostgreSQL (https://www.postgresql.org/)
+
 ## 1. Requisitos Básicos
 
 ### 1.1. Grupos

@@ -73,7 +73,7 @@ const OAuthCallback: React.FC<OAuthCallbackProps> = ({ onLogin }) => {
             client_secret: '9c9464df-359b-4dfd-991a-6da80a1f4195',
             grant_type: 'authorization_code',
             code: code,
-            redirect_uri: 'https://9d9c-2804-14d-8084-a3a5-3094-d7cd-95f5-1cf5.ngrok-free.app/login/callback',
+            redirect_uri: import.meta.env.VITE_ORCID_REDIRECT_URL,
           }),
         });
 

@@ -8,8 +8,8 @@ import { Link } from 'react-router-dom';
 const Login = () => {
   const handleOrcidLogin = () => {
     // ORCID OAuth parameters
-    const clientId = 'APP-GVPBMVHOEBR3RKKI';
-    const redirectUri = encodeURIComponent('http://172.24.33.196:8080/login/callback');
+    const clientId = 'APP-7ZEPLIK1RF37GXE9';
+    const redirectUri = encodeURIComponent('https://09ff-45-161-243-216.ngrok-free.app/login/callback');
     const scope = encodeURIComponent('/authenticate');
     const responseType = 'code';
     const state = Math.random().toString(36).substring(2, 15); // Generate random state for security
@@ -18,7 +18,7 @@ const Login = () => {
     sessionStorage.setItem('orcid_oauth_state', state);
     
     // Construct ORCID OAuth URL
-    const orcidAuthUrl = `https://sandbox.orcid.org/oauth/authorize?client_id=${clientId}&response_type=${responseType}&scope=${scope}&redirect_uri=${redirectUri}&state=${state}`;
+    const orcidAuthUrl = `https://orcid.org/oauth/authorize?client_id=${clientId}&response_type=${responseType}&scope=${scope}&redirect_uri=${redirectUri}&state=${state}`;
     
     // Redirect to ORCID OAuth
     window.location.href = orcidAuthUrl;

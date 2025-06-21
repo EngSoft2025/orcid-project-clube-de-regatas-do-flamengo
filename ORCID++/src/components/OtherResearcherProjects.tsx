@@ -1,18 +1,23 @@
-
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Calendar, FileText, Search } from 'lucide-react';
-import { Project, Publication } from '../types';
+import { Project, Publication, Researcher } from '../types';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
+import Pagination from './Pagination';
 
 interface OtherResearcherProjectsProps {
   projects: Project[];
   publications: Publication[];
+  researcher?: Researcher;
 }
 
-const OtherResearcherProjects = ({ projects, publications }: OtherResearcherProjectsProps) => {
+const OtherResearcherProjects = ({ projects, publications, researcher }: OtherResearcherProjectsProps) => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(6); // 6 projetos por página (3x2 grid)
   
   const filteredProjects = projects.filter(project => {
     if (!searchQuery) return true;
@@ -21,6 +26,28 @@ const OtherResearcherProjects = ({ projects, publications }: OtherResearcherProj
     const descMatch = project.description.toLowerCase().includes(searchQuery.toLowerCase());
     return nameMatch || titleMatch || descMatch;
   });
+
+  // Calcula paginação
+  const paginationData = useMemo(() => {
+    const totalItems = filteredProjects.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const currentItems = filteredProjects.slice(startIndex, endIndex);
+
+    return {
+      totalItems,
+      totalPages,
+      currentItems,
+      startIndex,
+      endIndex
+    };
+  }, [filteredProjects, currentPage, itemsPerPage]);
+
+  // Reset página quando busca muda
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   const calculateProgress = (project: Project) => {
     const current = new Date().getFullYear();
@@ -42,6 +69,24 @@ const OtherResearcherProjects = ({ projects, publications }: OtherResearcherProj
     if (progress >= 75) return 'text-orange-500';
     return 'text-green-500';
   };
+
+  // Função para navegar para detalhes do projeto
+  const handleProjectClick = (project: Project) => {
+    navigate(`/other-project/${project.id}`, {
+      state: {
+        project,
+        publications,
+        researcher
+      }
+    });
+  };
+
+  // Função para mudar página
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll para o topo da lista
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   
   return (
     <div className="max-w-6xl">
@@ -57,12 +102,23 @@ const OtherResearcherProjects = ({ projects, publications }: OtherResearcherProj
             />
           </div>
         </div>
+
+        {/* Contador de resultados */}
+        {searchQuery && (
+          <div className="mb-4 text-sm text-gray-600">
+            {filteredProjects.length} projeto(s) encontrado(s) para "{searchQuery}"
+          </div>
+        )}
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {filteredProjects.map((project) => (
-            <Card key={project.id} className="p-5 bg-white border-gray-200 hover:border-blue-300 transition-colors">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-[400px]">
+          {paginationData.currentItems.map((project) => (
+            <Card 
+              key={project.id} 
+              className="p-5 bg-white border-gray-200 hover:border-blue-300 transition-colors cursor-pointer"
+              onClick={() => handleProjectClick(project)}
+            >
               <div className="flex flex-col h-full">
-                <h3 className="text-lg font-medium text-blue-800 mb-2">
+                <h3 className="text-lg font-medium text-blue-800 mb-2 hover:underline">
                   {project.name || project.title}
                 </h3>
                 
@@ -106,9 +162,20 @@ const OtherResearcherProjects = ({ projects, publications }: OtherResearcherProj
         
         {filteredProjects.length === 0 && (
           <div className="text-center py-10">
-            <p className="text-gray-500">Nenhum projeto encontrado.</p>
+            <p className="text-gray-500">
+              {searchQuery ? 'Nenhum projeto encontrado para sua busca.' : 'Nenhum projeto encontrado.'}
+            </p>
           </div>
         )}
+
+        {/* Componente de paginação */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={paginationData.totalPages}
+          onPageChange={handlePageChange}
+          itemsPerPage={itemsPerPage}
+          totalItems={paginationData.totalItems}
+        />
       </Card>
     </div>
   );

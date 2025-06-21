@@ -115,7 +115,7 @@ A partir do que foi projetado, foi criado um website, com frontend e backend em 
 ### 1.4. Testes
 Os testes foram realizados de duas maneiras: manual e automatizado. Os testes automatizados foram feitos com a ferramenta Jest. Mais detalhes sobre os testes automatizados estão na subseção 2.
 
-## Como realizar os testes unitários
+## 2. Como realizar os testes unitários
 1. Vá até o diretório servidor/app
 ```
 cd ORCID++/servidor/app

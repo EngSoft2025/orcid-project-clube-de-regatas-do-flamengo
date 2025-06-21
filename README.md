@@ -2,6 +2,11 @@
 
 Documentação para a realização do Trabalho da Disciplina SCC0130 - Engenharia de Software, ministrada pelo Prof. Dr. Seiji Isotani.
 
+## Requerimentos
+1. Node.js (https://nodejs.org/pt)
+2. ngrok (https://ngrok.com/)
+3. PostgreSQL (https://www.postgresql.org/)
+
 ## 1. Requisitos Básicos
 
 ### 1.1. Grupos
@@ -61,3 +66,44 @@ A nota de avaliação do trabalho será dada por:
     - Organização e documentação do código no GitHub. (0,5)
     - Usabilidade e manutenabilidade. (0,5)
     - Apresentação do produto. (1)
+  
+## Como adicionar as variáveis ao sistema
+1. No diretório raiz, crie um arquivo .env e adicione
+```
+VITE_ORCID_REDIRECT_URL="[URL_DO_NGROK}/login/callback"  
+```
+Isso permite que o site seja acessado remotamente.
+
+2. No diretório servidor/app, crcrie um arquivo .env e adicione
+```
+# Server configuration
+PORT=3000 
+NODE_ENV=production
+DB_HOST=[NOME_DO_HOST_DA_BD]
+DB_PORT=[PORTA_DA_DB]
+DB_USER=[USUARIO_DA_BD]
+DB_PASSWORD=[SENHA_DA_BD~]
+DB_NAME=[NOME_DA_BD]
+
+# ORCID API Configuration (optional - can be passed from frontend)
+ORCID_CLIENT_ID=APP-GVPBMVHOEBR3RKKI
+ORCID_CLIENT_SECRET=627be347-8fb5-4f90-976b-d18ecdbf6eb4
+
+# ORCID URLs
+ORCID_API_BASE_URL=https://pub.sandbox.orcid.org/v3.0
+ORCID_TOKEN_URL=https://sandbox.orcid.org/oauth/token
+
+# CORS Configuration
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080,http://172.24.59.101:8080
+```
+
+## Como realizar os testes unitários
+1. Vá até o diretório servidor/app
+```
+cd servidor/app
+```
+
+2. Rode o comando
+```
+npm test server.test.js
+```

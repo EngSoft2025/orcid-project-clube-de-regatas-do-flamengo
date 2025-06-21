@@ -1,80 +1,60 @@
-# Trabalho ORCID
+# ORCID++ 
+Projeto desenvolvido como trabalho da Disciplina SCC0130 - Engenharia de Software, ministrada pelo Prof. Dr. Seiji Isotani.
 
-Documentação para a realização do Trabalho da Disciplina SCC0130 - Engenharia de Software, ministrada pelo Prof. Dr. Seiji Isotani.
+Consiste em um website cuja proposta é a utilização da API do ORCID para melhorar alguns aspectos da plataforma e adicionar novas features.
 
-## Requerimentos
+O projeto foi desenvolvido pelos alunos Maicon Chaves, Karl Antenhofen e Rodrigo Lima.
+
+# Instalando o projeto
+
+- Tutorial em vídeo (sem áudio): https://drive.google.com/drive/u/0/folders/19mPU2FWb8A6NGkguvRUObAKiln0zITuS
+
+## 1. Requerimentos
 1. Node.js (https://nodejs.org/pt)
 2. ngrok (https://ngrok.com/)
 3. PostgreSQL (https://www.postgresql.org/)
 
-## 1. Requisitos Básicos
-
-### 1.1. Grupos
-
-O trabalho deverá ser feito em grupos de até 5 alunos. Os alunos de um mesmo grupo devem ser, preferencialmente, da mesma turma (horário).
-
-### 1.2. Entrega
-
-A data de entrega final é dia DD/MM.
-
-### 1.3. Plágio
-
-O uso de IA (ex: Chat GPT) para produção de código é incentivada, mas plágio não será tolerado.
-
-## 2. Requisitos Técnicos
-
-### 2.1. Contextualização
-
-O [ORCID](https://orcid.org) (Open Researcher and Contributor ID) é um identificador digital único para pesquisadores e autores acadêmicos. Ele foi criado como um projeto open source, com o objetivo de resolver o problema de ambiguidade nos nomes dos autores em publicações científicas, garantindo que cada pesquisador tenha um ID exclusivo, independente de variações no nome, afiliações institucionais ou mudanças de carreira.
-
-### 2.2. Motivação
-
-Embora o seja ORCID essencial para pesquisadores e acadêmicos, sua a interface e a usabilidade poderiam ser muito melhores. Além disso, é possível criar uma vasta gama de produtos e soluções em cima dele, tendo em vista que a [documentação](https://github.com/ORCID/ORCID-Source) da sua API é muito bem estruturada. Veja [como usar a API](/API.md).
-
-### 2.3. Objetivos
-
-**Entrevistar 3 professores** para coletar e documentar requisitos e necessidades para o desenvolvimento de um produto que melhore a visualização, interação ou gestão dos dados fornecidos via API pública do ORCID; seguindo os padrões, os métodos, e as documentações discutidas na disciplina. 
-
-**Idealizar e desenvolver o produto**, que pode ser uma aplicação Web, Mobile, Desktop, etc.
-
-### 2.4 Sugestões
-
-Seguem algumas sugestões de possíveis melhorias:
-
-- Visualizar estatísticas das publicações.
-- Gerenciar publicações de forma mais visual e interativa.
-- Analisar rede acadêmica de colaborações.
-- Alertas e notificações (ex: citação de artigos, publicações).
-
-## 3. Avaliação
-
-A nota de avaliação do trabalho será dada por:
-
-1. Documentação do Projeto (4):
-    - Plano do projeto. (0,5)
-    - Documento de requisitos e entrevistas. (2)
-    - Modelagem do software. (0,5)
-    - Casos de uso. (0,5)
-    - Casos de teste. (0,5)
-
-2. Desenvolvimento (3):
-    - Seguir metodologia escolhida. (2)
-    - Organização das tarefas. (1)
-
-3. Produto (3):
-    - Atendimento às funcionalidades e requisitos. (1)
-    - Organização e documentação do código no GitHub. (0,5)
-    - Usabilidade e manutenabilidade. (0,5)
-    - Apresentação do produto. (1)
-  
-## Como adicionar as variáveis ao sistema
-1. No diretório raiz, crie um arquivo .env e adicione
+## 2. Clonar repositório e instalar bibliotecas
 ```
-VITE_ORCID_REDIRECT_URL="[URL_DO_NGROK}/login/callback"  
+git clone https://github.com/EngSoft2025/orcid-project-clube-de-regatas-do-flamengo
+cd orcid-project-clube-de-regatas-do-flamengo
 ```
-Isso permite que o site seja acessado remotamente.
+- Instalando bibliotecas do frontend
+```
+cd ORCID++
+npm i
+```
+- Instalando bibliotecas do backend
+```
+cd servidor/app
+npm i
+cd ./../..
+```
 
-2. No diretório servidor/app, crcrie um arquivo .env e adicione
+## 3. Inicializar frontend
+```
+npm run dev
+```
+Algumas URLs irão aparecer. A que se refere ao website é qualquer uma que não seja localhost.
+
+## 4. Inicializar ngrok
+Em um novo terminal, digite:
+```
+ngrok http [PORTA DA URL]
+```
+[PORTA DA URL] é a porta do website, sendo obtida a partir da URL do passo 3.
+
+## 5. Inicializar base de dados
+Com o postgreSQL, crie uma nova base de dados utilizando as configurações que desejar, e inicialize-a com o comando SQL em BD/create_tables.sql.
+
+## 6. Adicionando variáveis 
+- No diretório raiz, crie um arquivo .env e escreva no arquivo
+```
+VITE_ORCID_REDIRECT_URL="[URL_DO_NGROK]/login/callback"  
+```
+[URL_DO_NGROK] é obtida ao rodar o comando do passo 4.
+
+- No diretório servidor/app, crie um arquivo .env e escreva no arquivo
 ```
 # Server configuration
 PORT=3000 
@@ -96,14 +76,55 @@ ORCID_TOKEN_URL=https://sandbox.orcid.org/oauth/token
 # CORS Configuration
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080,http://172.24.59.101:8080
 ```
+As variáveis sobre a base de dados devem ser preenchidas de acordo com as configurações impostas na etapa 5.
+
+## 7. Inicializar backend
+Em um novo terminal, abra o diretório do projeto e digite
+```
+cd ORCID++/servidor/app
+node server.js
+```
+## 8. Configurando a API do ORCID
+Com um perfil com acesso às ferramentas de desenvolvedor do ORCID, vá em https://orcid.org/ > Sign In/Register > Realize login > Clique no nome do seu perfil > Developer tools.
+
+No campo "Redirect URIs", adicione uma linha:
+```
+[URL_DO_NGROK]/login/callback
+```
+[URL_DO_NGROK] é obtida ao rodar o comando do passo 4. 
+
+Após adicionar o link, salve as alterações.
+
+## 9. Rodando o website
+Agora você deve ter 3 terminais abertos: um com o frontend, outro com o backend e o último com o ngrok. Com isso, basta abrir no navegador:
+
+[URL_DO_NGROK]
+
+E o site estará em funcionamento.
+
+# NOTAS
+## 1. Detalhes do projeto
+
+O projeto foi desenvolvido inteiramente em modelo cascata, dividido em 4 fases:
+### 1.1. Análise e definição de requisitos
+Feito a partir de entrevistas com professores da Universidade de São Paulo (nossos stakeholders). Diagrama de casos de uso desenvolvido nesta etapa estão no diretório ./PlantUML, e documentos escritos estão no diretório ./Documentação.
+### 1.2. Projeto de sistema e software
+Feito majoritariamente com diagramas UML, desenvolvidos a partir da ferramenta PlantUML. Foram desenvolvidos diagramas de classes, atividades e sequência. Cada diagrama, e seu código correspondente, está no diretório ./PlantUML. O documento referente a esta estapa está em ./Documentação/ORCID++ - Projeto de Sistema e Software.pdf.
+### 1.3. Implementação
+A partir do que foi projetado, foi criado um website, com frontend e backend em javascript. A implementação está no diretório ./ORCID++
+### 1.4. Testes
+Os testes foram realizados de duas maneiras: manual e automatizado. Os testes automatizados foram feitos com a ferramenta Jest. Mais detalhes sobre os testes automatizados estão na subseção 2.
 
 ## Como realizar os testes unitários
 1. Vá até o diretório servidor/app
 ```
-cd servidor/app
+cd ORCID++/servidor/app
 ```
 
 2. Rode o comando
 ```
 npm test server.test.js
 ```
+
+Os testes devem retornar todos positivos. O foco nos testes automáticos é verificar a utilização da base de dados pelo backend. Ademais, os testes utilizam uma base de dados temporária para seus testes, e portanto não afetam os dados contidos no servidor.
+

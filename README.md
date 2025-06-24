@@ -5,7 +5,7 @@ Consiste em um website cuja proposta é a utilização da API do ORCID para melh
 
 O projeto foi desenvolvido pelos alunos Maicon Chaves, Karl Antenhofen e Rodrigo Lima.
 
-- Link do vídeo no Youtube sobre o projeto: https://github.com/EngSoft2025/orcid-project-clube-de-regatas-do-flamengo
+- Link do vídeo no Youtube sobre o projeto: https://www.youtube.com/watch?v=DNMllZGG8_s
 
 # Instalando o projeto
 

@@ -47,6 +47,12 @@ Ponto de entrada do sistema. Apresenta acesso às funcionalidades principais: bu
 
 A autenticação é realizada via OAuth 2.0 diretamente com o ORCID. Ao clicar em "Entrar com ORCID", o usuário é redirecionado para a página de autorização do ORCID e, após conceder acesso, retorna ao sistema autenticado.
 
+### Identificador ORCID
+
+![ORCID](Imagens/ORCID.png)
+
+O pesquisador pode associar seu ORCID iD ao perfil do ORCID++, habilitando a importação automática de publicações e a sincronização com a plataforma oficial.
+
 ### Processando autenticação
 
 ![Processando](Imagens/Processando.png)
@@ -70,18 +76,6 @@ A página de perfil centraliza as informações do pesquisador: afiliação inst
 ![Busca](Imagens/Busca.png)
 
 O módulo de busca permite encontrar pesquisadores por nome, instituição ou área de atuação. Cada resultado exibe um resumo do perfil com acesso ao detalhamento completo.
-
-### Identificador ORCID
-
-![ORCID](Imagens/ORCID.png)
-
-O pesquisador pode associar seu ORCID iD ao perfil do ORCID++, habilitando a importação automática de publicações e a sincronização com a plataforma oficial.
-
-### Testes
-
-![Testes](Imagens/Teste.png)
-
-Os testes automatizados foram desenvolvidos com **Jest**, cobrindo os endpoints da camada de acesso ao banco de dados. Os testes utilizam uma base de dados temporária e isolada, garantindo que os dados de produção não sejam afetados. Testes manuais de sistema e usabilidade foram conduzidos pelos membros da equipe em múltiplos dispositivos e navegadores.
 
 ---
 

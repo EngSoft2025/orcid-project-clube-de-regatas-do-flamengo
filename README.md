@@ -37,7 +37,7 @@ O projeto foi integralmente planejado e executado no **modelo cascata**, passand
 
 ### Tela inicial
 
-![Tela Inicial](Imagens/Tela%20Inicial.png)
+![Tela Inicial](Imagens/Home.png)
 
 Ponto de entrada do sistema. Apresenta acesso às funcionalidades principais: busca de pesquisadores, navegação por publicações e projetos, e login.
 

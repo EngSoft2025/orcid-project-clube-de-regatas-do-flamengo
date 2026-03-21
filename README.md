@@ -1,132 +1,217 @@
-# ORCID++ 
-Projeto desenvolvido como trabalho da Disciplina SCC0130 - Engenharia de Software, ministrada pelo Prof. Dr. Seiji Isotani.
+# ORCID++
 
-Consiste em um website cuja proposta é a utilização da API do ORCID para melhorar alguns aspectos da plataforma e adicionar novas features.
+**ORCID++** é uma aplicação web desenvolvida para expandir e aprimorar a plataforma [ORCID](https://orcid.org/), integrando sua API pública para oferecer uma experiência de uso mais completa e intuitiva a pesquisadores acadêmicos.
 
-O projeto foi desenvolvido pelos alunos Maicon Chaves, Karl Antenhofen e Rodrigo Lima.
+**Equipe:** Maicon Chaves Marques, Karl Cruz Altenhofen, Rodrigo de Freitas Lima
 
-- Link do vídeo no Youtube sobre o projeto: https://www.youtube.com/watch?v=DNMllZGG8_s
+🎥 [Vídeo de apresentação](https://www.youtube.com/watch?v=DNMllZGG8_s)
 
-# Instalando o projeto
+---
 
-- Tutorial em vídeo (sem áudio): https://drive.google.com/drive/u/0/folders/19mPU2FWb8A6NGkguvRUObAKiln0zITuS
+## Sobre o projeto
 
-## 1. Requerimentos
-1. Node.js (https://nodejs.org/pt)
-2. ngrok (https://ngrok.com/)
-3. PostgreSQL (https://www.postgresql.org/)
+O ORCID é amplamente utilizado por pesquisadores para registrar e divulgar sua produção científica, mas apresenta limitações relevantes em termos de usabilidade, visualização de dados e gerenciamento de produção. O ORCID++ foi construído para endereçar essas lacunas, adicionando funcionalidades que a plataforma original não oferece.
 
-## 2. Clonar repositório e instalar bibliotecas
-```
+O sistema permite que pesquisadores autentiquem-se via OAuth 2.0, importem seus dados diretamente do ORCID e gerenciem sua produção científica — publicações, projetos, identificadores e links — em uma interface moderna e responsiva. Visitantes podem navegar por perfis públicos, explorar publicações e projetos, e visualizar estatísticas de produção por meio de gráficos interativos.
+
+O projeto foi integralmente planejado e executado no **modelo cascata**, passando pelas fases de levantamento de requisitos (com entrevistas junto a pesquisadores da USP como stakeholders), projeto de sistema com diagramas UML, implementação e testes automatizados.
+
+---
+
+## Funcionalidades
+
+- Autenticação via OAuth 2.0 integrada ao ORCID
+- Criação e edição de perfil de pesquisador com associação ao ORCID iD
+- Registro e edição de publicações com suporte a DOI, ISBN e outros identificadores padrão
+- Criação e gerenciamento de projetos de pesquisa
+- Vinculação de publicações a projetos
+- Gráficos de evolução de publicações por ano e por projeto
+- Busca de pesquisadores por nome, instituição e área de pesquisa
+- Adição de links externos a publicações (preprints, repositórios, páginas institucionais)
+- Visualização de perfis de outros pesquisadores com importação de dados via API do ORCID
+- Sincronização com dados públicos do ORCID
+
+---
+
+## Telas
+
+### Tela inicial
+
+![Tela Inicial](Imagens/Tela%20Inicial.png)
+
+Ponto de entrada do sistema. Apresenta acesso às funcionalidades principais: busca de pesquisadores, navegação por publicações e projetos, e login.
+
+### Login com ORCID
+
+![Login](Imagens/Login.png)
+
+A autenticação é realizada via OAuth 2.0 diretamente com o ORCID. Ao clicar em "Entrar com ORCID", o usuário é redirecionado para a página de autorização do ORCID e, após conceder acesso, retorna ao sistema autenticado.
+
+### Processando autenticação
+
+![Processando](Imagens/Processando.png)
+
+Durante o callback OAuth, o sistema realiza a troca do código de autorização pelo token de acesso, consulta os dados do perfil via API do ORCID e os persiste no banco de dados local.
+
+### Autenticação concluída
+
+![Sucesso](Imagens/Sucesso.png)
+
+Com o token validado e o perfil sincronizado, o pesquisador é redirecionado para seu painel, onde pode visualizar e gerenciar toda sua produção.
+
+### Perfil do pesquisador
+
+![Perfil](Imagens/Perfil.png)
+
+A página de perfil centraliza as informações do pesquisador: afiliação institucional, áreas de pesquisa, publicações agrupadas por tipo, projetos vinculados, links acadêmicos externos e gráficos de evolução de produção por ano e por projeto.
+
+### Busca de pesquisadores
+
+![Busca](Imagens/Busca.png)
+
+O módulo de busca permite encontrar pesquisadores por nome, instituição ou área de atuação. Cada resultado exibe um resumo do perfil com acesso ao detalhamento completo.
+
+### Identificador ORCID
+
+![ORCID](Imagens/ORCID.png)
+
+O pesquisador pode associar seu ORCID iD ao perfil do ORCID++, habilitando a importação automática de publicações e a sincronização com a plataforma oficial.
+
+### Testes
+
+![Testes](Imagens/Teste.png)
+
+Os testes automatizados foram desenvolvidos com **Jest**, cobrindo os endpoints da camada de acesso ao banco de dados. Os testes utilizam uma base de dados temporária e isolada, garantindo que os dados de produção não sejam afetados. Testes manuais de sistema e usabilidade foram conduzidos pelos membros da equipe em múltiplos dispositivos e navegadores.
+
+---
+
+## Arquitetura e modelagem
+
+O projeto foi modelado com diagramas UML produzidos com [PlantUML](https://plantuml.com), disponíveis no diretório `./PlantUML`:
+
+- **Diagrama de casos de uso** — atores: pesquisador adicionando informações, pesquisador procurando informações e administrador
+- **Diagrama de classes** — modelagem das entidades `Pesquisador`, `Publicacao`, `Projeto` e seus relacionamentos, filtros e componentes de página
+- **Diagramas de atividades** — 12 fluxos cobertos, incluindo adicionar/editar produção intelectual, associar ORCID ID, verificar e atualizar dados do ORCID, criar e gerenciar perfil, buscar produção acadêmica e visualizar estatísticas
+- **Diagramas de sequência** — fluxos de login OAuth, edição de perfil, busca e associação de identificador
+
+A documentação completa está no diretório `./Documentação`.
+
+---
+
+## Stack
+
+| Camada     | Tecnologias                                                  |
+|------------|--------------------------------------------------------------|
+| Frontend   | React, TypeScript, Vite, Tailwind CSS, shadcn/ui, Recharts   |
+| Backend    | Node.js, Express                                             |
+| Banco      | PostgreSQL                                                   |
+| Auth       | OAuth 2.0 (ORCID)                                            |
+| Testes     | Jest                                                         |
+| Diagramas  | PlantUML                                                     |
+
+---
+
+## Instalação
+
+### Requisitos
+
+- [Node.js](https://nodejs.org/pt)
+- [ngrok](https://ngrok.com/)
+- [PostgreSQL](https://www.postgresql.org/)
+
+📹 [Tutorial de instalação em vídeo (sem áudio)](https://drive.google.com/drive/u/0/folders/19mPU2FWb8A6NGkguvRUObAKiln0zITuS)
+
+### 1. Clonar o repositório e instalar dependências
+
+```bash
 git clone https://github.com/EngSoft2025/orcid-project-clube-de-regatas-do-flamengo
 cd orcid-project-clube-de-regatas-do-flamengo
 ```
-- Instalando bibliotecas do frontend
-```
+
+Frontend:
+```bash
 cd ORCID++
 npm i
 ```
-- Instalando bibliotecas do backend
-```
+
+Backend:
+```bash
 cd servidor/app
 npm i
-cd ./../..
+cd ../..
 ```
 
-## 3. Inicializar frontend
-```
+### 2. Inicializar o frontend
+
+```bash
 npm run dev
 ```
-Algumas URLs irão aparecer. A que se refere ao website é qualquer uma que não seja localhost.
 
-## 4. Inicializar ngrok
-Em um novo terminal, digite:
-```
-ngrok http [PORTA DA URL]
-```
-[PORTA DA URL] é a porta do website, sendo obtida a partir da URL do passo 3.
+Será exibida uma lista de URLs. A URL do site é qualquer uma que não seja `localhost`.
 
-## 5. Inicializar base de dados
-Com o postgreSQL, crie uma nova base de dados utilizando as configurações que desejar, e inicialize-a com o comando SQL em BD/create_tables.sql.
+### 3. Inicializar o ngrok
 
-## 6. Adicionando variáveis 
-- No diretório raiz, crie um arquivo .env e escreva no arquivo
+Em um novo terminal:
+```bash
+ngrok http [PORTA_DA_URL]
 ```
-VITE_ORCID_REDIRECT_URL="[URL_DO_NGROK]/login/callback"  
-```
-[URL_DO_NGROK] é obtida ao rodar o comando do passo 4.
 
-- No diretório servidor/app, crie um arquivo .env e escreva no arquivo
+`[PORTA_DA_URL]` é a porta obtida na URL do passo anterior.
+
+### 4. Configurar o banco de dados
+
+No PostgreSQL, crie uma base de dados e inicialize-a com o script em `BD/create_tables.sql`.
+
+### 5. Configurar variáveis de ambiente
+
+No diretório raiz, crie `.env`:
 ```
-# Server configuration
-PORT=3000 
+VITE_ORCID_REDIRECT_URL="[URL_DO_NGROK]/login/callback"
+```
+
+No diretório `ORCID++/servidor/app`, crie `.env`:
+```
+PORT=3000
 NODE_ENV=production
 DB_HOST=[NOME_DO_HOST_DA_BD]
-DB_PORT=[PORTA_DA_DB]
+DB_PORT=[PORTA_DA_BD]
 DB_USER=[USUARIO_DA_BD]
-DB_PASSWORD=[SENHA_DA_BD~]
+DB_PASSWORD=[SENHA_DA_BD]
 DB_NAME=[NOME_DA_BD]
 
-# ORCID API Configuration (optional - can be passed from frontend)
 ORCID_CLIENT_ID=APP-GVPBMVHOEBR3RKKI
 ORCID_CLIENT_SECRET=627be347-8fb5-4f90-976b-d18ecdbf6eb4
 
-# ORCID URLs
 ORCID_API_BASE_URL=https://pub.sandbox.orcid.org/v3.0
 ORCID_TOKEN_URL=https://sandbox.orcid.org/oauth/token
 
-# CORS Configuration
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080,http://172.24.59.101:8080
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
 ```
-As variáveis sobre a base de dados devem ser preenchidas de acordo com as configurações impostas na etapa 5.
 
-## 7. Inicializar backend
-Em um novo terminal, abra o diretório do projeto e digite
-```
-cd ORCID++/servidor/app
-node server.js
-```
-## 8. Configurando a API do ORCID
-Com um perfil com acesso às ferramentas de desenvolvedor do ORCID, vá em https://orcid.org/ > Sign In/Register > Realize login > Clique no nome do seu perfil > Developer tools.
+### 6. Configurar o Redirect URI no ORCID
 
-No campo "Redirect URIs", adicione uma linha:
+Acesse [orcid.org](https://orcid.org) → Sign In → Developer Tools. Em "Redirect URIs", adicione:
 ```
 [URL_DO_NGROK]/login/callback
 ```
-[URL_DO_NGROK] é obtida ao rodar o comando do passo 4. 
 
-Após adicionar o link, salve as alterações.
+### 7. Inicializar o backend
 
-## 9. Rodando o website
-Agora você deve ter 3 terminais abertos: um com o frontend, outro com o backend e o último com o ngrok. Com isso, basta abrir no navegador:
-
-[URL_DO_NGROK]
-
-E o site estará em funcionamento.
-
-# NOTAS
-## 1. Detalhes do projeto
-
-O projeto foi desenvolvido inteiramente em modelo cascata, dividido em 4 fases:
-### 1.1. Análise e definição de requisitos
-Feito a partir de entrevistas com professores da Universidade de São Paulo (nossos stakeholders). Diagrama de casos de uso desenvolvido nesta etapa estão no diretório ./PlantUML, e documentos escritos estão no diretório ./Documentação.
-### 1.2. Projeto de sistema e software
-Feito majoritariamente com diagramas UML, desenvolvidos a partir da ferramenta PlantUML. Foram desenvolvidos diagramas de classes, atividades e sequência. Cada diagrama, e seu código correspondente, está no diretório ./PlantUML. O documento referente a esta estapa está em ./Documentação/ORCID++ - Projeto de Sistema e Software.pdf.
-### 1.3. Implementação
-A partir do que foi projetado, foi criado um website, com frontend e backend em javascript. A implementação está no diretório ./ORCID++
-### 1.4. Testes
-Os testes foram realizados de duas maneiras: manual e automatizado. Os testes automatizados foram feitos com a ferramenta Jest. Mais detalhes sobre os testes automatizados estão na subseção 2.
-
-## 2. Como realizar os testes unitários
-1. Vá até o diretório servidor/app
-```
+Em um novo terminal:
+```bash
 cd ORCID++/servidor/app
+node server.js
 ```
 
-2. Rode o comando
-```
+Com os três terminais ativos (frontend, backend e ngrok), acesse `[URL_DO_NGROK]` no navegador.
+
+---
+
+## Testes unitários
+
+```bash
+cd ORCID++/servidor/app
 npm test server.test.js
 ```
 
-Os testes devem retornar todos positivos. O foco nos testes automáticos é verificar a utilização da base de dados pelo backend. Ademais, os testes utilizam uma base de dados temporária para seus testes, e portanto não afetam os dados contidos no servidor.
-
+Os testes cobrem a camada de acesso ao banco de dados e utilizam uma base temporária, sem interferir nos dados de produção.
